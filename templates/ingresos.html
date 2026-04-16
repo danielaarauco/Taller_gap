@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Ingresos{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Ingresos vehiculos</h1>
+            <p>Busca y filtra ingresos registrados en el taller.</p>
+        </div>
+        <a class="btn btn-primary" href="/ingresos/nuevo">Registrar ingreso</a>
+    </div>
+
+    <form method="GET" action="/ingresos" class="mb-3">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Placa</label>
+                <input type="text" name="placa" value="{{ placa or '' }}" placeholder="Ej: 5015KRC">
+            </div>
+
+            <div class="form-group">
+                <label>Cliente</label>
+                <select name="id_cliente">
+                    <option value="">Todos</option>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente['id_cliente'] }}" {% if id_cliente == cliente['id_cliente']|string %}selected{% endif %}>
+                            {{ cliente['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Mecánico encargado</label>
+                <input type="text" name="mecanico" value="{{ mecanico or '' }}" placeholder="Ej: JUAN PEREZ">
+            </div>
+
+            <div class="form-group">
+                <label>Estado</label>
+                <select name="estado">
+                    <option value="">Todos</option>
+                    <option value="Ingresado" {% if estado == "Ingresado" %}selected{% endif %}>Ingresado</option>
+                    <option value="En revisión" {% if estado == "En revisión" %}selected{% endif %}>En revisión</option>
+                    <option value="En reparación" {% if estado == "En reparación" %}selected{% endif %}>En reparación</option>
+                    <option value="Finalizado" {% if estado == "Finalizado" %}selected{% endif %}>Finalizado</option>
+                    <option value="Entregado" {% if estado == "Entregado" %}selected{% endif %}>Entregado</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha desde</label>
+                <input type="date" name="fecha_desde" value="{{ fecha_desde or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Fecha hasta</label>
+                <input type="date" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
+            <a class="btn btn-secondary" href="/ingresos">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Propietario</th>
+                    <th>Placa</th>
+                    <th>Vehículo</th>
+                    <th>Mecánico encargado</th>
+                    <th>Motivo</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ingreso in ingresos %}
+                <tr>
+                    <td>{{ ingreso["id_ingreso"] }}</td>
+                    <td>{{ ingreso["fecha_ingreso"] }}</td>
+                    <td>{{ ingreso["nombre_completo"] }}</td>
+                    <td>{{ ingreso["placa"] }}</td>
+                    <td>{{ ingreso["marca"] }} {{ ingreso["modelo"] }}</td>
+                    <td>{{ ingreso["mecanico_encargado"] }}</td>
+                    <td>{{ ingreso["motivo"] }}</td>
+                    <td>{{ ingreso["estado"] }}</td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-warning" href="/ingresos/{{ ingreso['id_ingreso'] }}/editar">Editar</a>
+                            <form class="inline-form" action="/ingresos/{{ ingreso['id_ingreso'] }}/eliminar" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este ingreso?')">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not ingresos %}
+                <tr>
+                    <td colspan="9" class="center">No se encontraron ingresos con esos filtros.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Proforma{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Editar Proforma</h1>
+            <p>Actualiza la información principal de la proforma.</p>
+        </div>
+    </div>
+
+    <p><strong>Número:</strong> {{ proforma['numero_proforma'] }}</p>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Cliente</label>
+                <select name="id_cliente" id="id_cliente" required>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente['id_cliente'] }}" {% if cliente['id_cliente'] == proforma['id_cliente'] %}selected{% endif %}>
+                            {{ cliente['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Vehículo</label>
+                <select name="id_vehiculo" id="id_vehiculo" required>
+                    {% for vehiculo in vehiculos %}
+                        <option value="{{ vehiculo['id_vehiculo'] }}" data-cliente="{{ vehiculo['id_cliente'] }}" {% if vehiculo['id_vehiculo'] == proforma['id_vehiculo'] %}selected{% endif %}>
+                            {{ vehiculo['placa'] }} - {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} - {{ vehiculo['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" value="{{ proforma['fecha'] }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Estado</label>
+                <select name="estado" required>
+                    <option value="Pendiente" {% if proforma['estado'] == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Aprobada" {% if proforma['estado'] == 'Aprobada' %}selected{% endif %}>Aprobada</option>
+                    <option value="Rechazada" {% if proforma['estado'] == 'Rechazada' %}selected{% endif %}>Rechazada</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Pago</label>
+                <select name="pago" required>
+                    <option value="Pendiente" {% if proforma['pago'] == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Realizado" {% if proforma['pago'] == 'Realizado' %}selected{% endif %}>Realizado</option>
+                </select>
+            </div>
+
+            <div class="form-group full">
+                <label>Observaciones</label>
+                <textarea name="observaciones">{{ proforma['observaciones'] or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar cambios</button>
+            <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    const clienteSelect = document.getElementById("id_cliente");
+    const vehiculoSelect = document.getElementById("id_vehiculo");
+    const opcionesOriginales = Array.from(vehiculoSelect.options);
+
+    function filtrarVehiculos() {
+        const clienteId = clienteSelect.value;
+        const seleccionadoActual = vehiculoSelect.value;
+
+        vehiculoSelect.innerHTML = "";
+
+        opcionesOriginales.forEach(opcion => {
+            if (opcion.dataset.cliente === clienteId) {
+                vehiculoSelect.appendChild(opcion);
+            }
+        });
+
+        for (let i = 0; i < vehiculoSelect.options.length; i++) {
+            if (vehiculoSelect.options[i].value === seleccionadoActual) {
+                vehiculoSelect.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    clienteSelect.addEventListener("change", filtrarVehiculos);
+    window.onload = filtrarVehiculos;
+</script>
+{% endblock %}

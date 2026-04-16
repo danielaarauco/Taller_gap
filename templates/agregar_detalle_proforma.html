@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Agregar Detalle{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Agregar detalle a la proforma</h1>
+            <p>Agrega repuestos o mano de obra a la proforma seleccionada.</p>
+        </div>
+    </div>
+
+    <div class="info-grid mb-3">
+        <div class="info-box">
+            <p><strong>Proforma:</strong> {{ proforma["numero_proforma"] }}</p>
+            <p><strong>Cliente:</strong> {{ proforma["nombre_completo"] }}</p>
+        </div>
+
+        <div class="info-box">
+            <p><strong>Vehículo:</strong> {{ proforma["placa"] }}</p>
+            <p><strong>Detalle:</strong> {{ proforma["marca"] }} {{ proforma["modelo"] }}</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Tipo de ítem</label>
+                <select name="tipo_item" required>
+                    <option value="">Seleccione</option>
+                    <option value="REPUESTO">REPUESTO</option>
+                    <option value="MANO_OBRA">MANO DE OBRA</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Cantidad</label>
+                <input type="number" name="cantidad" min="1" required>
+            </div>
+
+            <div class="form-group full">
+                <label>Descripción</label>
+                <input type="text" name="descripcion" required>
+            </div>
+
+            <div class="form-group">
+                <label>Precio unitario</label>
+                <input type="number" step="0.01" name="precio_unitario" min="0" required>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar detalle</button>
+            <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

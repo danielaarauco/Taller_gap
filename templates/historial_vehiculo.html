@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Historial del Vehículo{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Historial del Vehículo</h1>
+            <p>Consulta de ingresos y movimientos del vehículo.</p>
+        </div>
+        <a class="btn btn-secondary" href="/vehiculos">Volver a vehículos</a>
+    </div>
+
+    <div class="info-grid mb-3">
+        <div class="info-box">
+            <h3>Propietario</h3>
+            <p><strong>Nombre:</strong> {{ vehiculo["nombre_completo"] }}</p>
+            <p><strong>Teléfono:</strong> {{ vehiculo["telefono"] }}</p>
+        </div>
+
+        <div class="info-box">
+            <h3>Vehículo</h3>
+            <p><strong>Placa:</strong> {{ vehiculo["placa"] }}</p>
+            <p><strong>Marca:</strong> {{ vehiculo["marca"] }}</p>
+            <p><strong>Modelo:</strong> {{ vehiculo["modelo"] }}</p>
+            <p><strong>Tipo:</strong> {{ vehiculo["tipo"] }}</p>
+            <p><strong>VIN:</strong> {{ vehiculo["vin"] }}</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Mecánico encargado</th>
+                    <th>Motivo</th>
+                    <th>Observaciones</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in historial %}
+                <tr>
+                    <td>{{ item["id_ingreso"] }}</td>
+                    <td>{{ item["fecha_ingreso"] }}</td>
+                    <td>{{ item["mecanico_encargado"] }}</td>
+                    <td>{{ item["motivo"] }}</td>
+                    <td>{{ item["observaciones"] }}</td>
+                    <td>{{ item["estado"] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

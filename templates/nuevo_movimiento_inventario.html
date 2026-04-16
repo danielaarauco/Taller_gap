@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Movimiento{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Registrar Movimiento de Inventario</h1>
+            <p>Agrega una entrada, salida o ajuste para este ítem.</p>
+        </div>
+    </div>
+
+    <div class="info-box mb-3">
+        <p><strong>Ítem:</strong> {{ item["descripcion"] }}</p>
+        <p><strong>Stock actual:</strong> {{ item["cantidad"] }}</p>
+        <p><strong>Unidad:</strong> {{ item["unidad_medida"] }}</p>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Fecha del movimiento</label>
+                <input type="date" name="fecha_movimiento" required>
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de movimiento</label>
+                <select name="tipo_movimiento" required>
+                    <option value="">Seleccione</option>
+                    <option value="ENTRADA">ENTRADA</option>
+                    <option value="SALIDA">SALIDA</option>
+                    <option value="AJUSTE">AJUSTE</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Cantidad</label>
+                <input type="number" name="cantidad" required>
+            </div>
+
+            <div class="form-group">
+                <label>Motivo</label>
+                <input type="text" name="motivo" placeholder="Ej: Compra, uso en reparación" required>
+            </div>
+
+            <div class="form-group">
+                <label>Referencia</label>
+                <input type="text" name="referencia" placeholder="Ej: PF-0007 o Factura 123">
+            </div>
+
+            <div class="form-group full">
+                <label>Observaciones</label>
+                <textarea name="observaciones"></textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar movimiento</button>
+            <a class="btn btn-secondary" href="/inventario/{{ item['id_item'] }}/movimientos">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

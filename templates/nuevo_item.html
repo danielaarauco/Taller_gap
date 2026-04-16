@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Item{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Registrar nuevo Item</h1>
+            <p>Agrega un nuevo repuesto o ítem al inventario.</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group full">
+                <label>Descripción</label>
+                <input type="text" name="descripcion" required>
+            </div>
+
+            <div class="form-group">
+                <label>Cantidad</label>
+                <input type="number" name="cantidad" min="0" required>
+            </div>
+
+            <div class="form-group">
+                <label>Unidad de medida</label>
+                <input type="text" name="unidad_medida" placeholder="Ej: PIEZA, LITRO, CAJA" required>
+            </div>
+
+            <div class="form-group">
+                <label>Estado</label>
+                <select name="estado" required>
+                    <option value="">Seleccione</option>
+                    <option value="Nuevo">Nuevo</option>
+                    <option value="Usado">Usado</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Categoría</label>
+                <input type="text" name="categoria" placeholder="Ej: MOTOR" required>
+            </div>
+
+            <div class="form-group">
+                <label>Marca</label>
+                <input type="text" name="marca" placeholder="Ej: HONDA">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar Item</button>
+            <a class="btn btn-secondary" href="/inventario">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

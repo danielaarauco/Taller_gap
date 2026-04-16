@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Proformas{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Proformas</h1>
+            <p>Busca proformas por cliente o por rango de fechas.</p>
+        </div>
+        <a class="btn btn-primary" href="/proformas/nuevo">Registrar proforma</a>
+    </div>
+
+    <form method="GET" action="/proformas" class="mb-3">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Cliente</label>
+                <select name="id_cliente">
+                    <option value="">Todos</option>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente['id_cliente'] }}" {% if id_cliente == cliente['id_cliente']|string %}selected{% endif %}>
+                            {{ cliente['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha desde</label>
+                <input type="date" name="fecha_desde" value="{{ fecha_desde or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Fecha hasta</label>
+                <input type="date" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
+            <a class="btn btn-secondary" href="/proformas">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Número</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Vehículo</th>
+                    <th>Total</th>
+                    <th>Estado</th>
+                    <th>Pago</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proforma in proformas %}
+                <tr>
+                    <td>{{ proforma["id_proforma"] }}</td>
+                    <td>{{ proforma["numero_proforma"] }}</td>
+                    <td>{{ proforma["fecha"] }}</td>
+                    <td>{{ proforma["nombre_completo"] }}</td>
+                    <td>{{ proforma["placa"] }} - {{ proforma["marca"] }} {{ proforma["modelo"] }}</td>
+                    <td>{{ proforma["total_general"] }}</td>
+                    <td>
+                        {% if proforma["estado"] == "Pendiente" %}
+                            <span class="badge badge-pendiente">Pendiente</span>
+                        {% elif proforma["estado"] == "Aprobada" %}
+                            <span class="badge badge-aprobada">Aprobada</span>
+                        {% elif proforma["estado"] == "Rechazada" %}
+                            <span class="badge badge-rechazada">Rechazada</span>
+                        {% else %}
+                            {{ proforma["estado"] }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if proforma["pago"] == "Realizado" %}
+                            <span class="badge badge-aprobada">Realizado</span>
+                        {% else %}
+                            <span class="badge badge-pendiente">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}">Ver</a>
+                            <a class="btn btn-warning" href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
+                            <a class="btn btn-primary" href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Detalle</a>
+                            <form class="inline-form" action="/proformas/{{ proforma['id_proforma'] }}/eliminar" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar esta proforma?')">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not proformas %}
+                <tr>
+                    <td colspan="9" class="center">No se encontraron proformas con esos filtros.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

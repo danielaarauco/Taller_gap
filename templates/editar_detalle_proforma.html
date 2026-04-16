@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Detalle{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Editar detalle de proforma</h1>
+            <p>Modifica la información del ítem seleccionado.</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Tipo de ítem</label>
+                <select name="tipo_item" required>
+                    <option value="REPUESTO" {% if detalle['tipo_item'] == 'REPUESTO' %}selected{% endif %}>REPUESTO</option>
+                    <option value="MANO_OBRA" {% if detalle['tipo_item'] == 'MANO_OBRA' %}selected{% endif %}>MANO_OBRA</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Cantidad</label>
+                <input type="number" name="cantidad" min="1" value="{{ detalle['cantidad'] }}" required>
+            </div>
+
+            <div class="form-group full">
+                <label>Descripción</label>
+                <input type="text" name="descripcion" value="{{ detalle['descripcion'] }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Precio unitario</label>
+                <input type="number" step="0.01" name="precio_unitario" min="0" value="{{ detalle['precio_unitario'] }}" required>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar cambios</button>
+            <a class="btn btn-secondary" href="javascript:history.back()">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

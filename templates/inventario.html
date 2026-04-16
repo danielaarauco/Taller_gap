@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Inventario de Repuestos</h1>
+            <p>Control de repuestos e ítems del almacén del taller.</p>
+        </div>
+        <a class="btn btn-primary" href="/inventario/nuevo">Registrar nuevo Item</a>
+    </div>
+
+    <form method="GET" action="/inventario" class="mb-3">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Buscar por descripción</label>
+                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Ej: Pastillas de frenos">
+            </div>
+
+            <div class="form-group">
+                <label>Filtrar por categoría</label>
+                <input type="text" name="categoria" value="{{ categoria or '' }}" placeholder="Ej: Frenos">
+            </div>
+
+            <div class="form-group">
+                <label>Filtrar por marca</label>
+                <input type="text" name="marca" value="{{ marca or '' }}" placeholder="Ej: BOSCH">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
+            <a class="btn btn-secondary" href="/inventario">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>DESCRIPCION</th>
+                    <th>CANTIDAD</th>
+                    <th>UNIDAD DE MEDIDA</th>
+                    <th>ESTADO</th>
+                    <th>CATEGORIA</th>
+                    <th>MARCA</th>
+                    <th>MOVIMIENTOS</th>
+                    <th>ACCIONES</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item["id_item"] }}</td>
+                    <td>{{ item["descripcion"] }}</td>
+                    <td>
+                        {% if item["cantidad"] == 0 %}
+                            <span class="badge badge-rechazada">Agotado</span>
+                        {% else %}
+                            {{ item["cantidad"] }}
+                        {% endif %}
+                    </td>
+                    <td>{{ item["unidad_medida"] }}</td>
+                    <td>{{ item["estado"] }}</td>
+                    <td>{{ item["categoria"] }}</td>
+                    <td>{{ item["marca"] }}</td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-secondary" href="/inventario/{{ item['id_item'] }}/movimientos">Ver</a>
+                            <a class="btn btn-primary" href="/inventario/{{ item['id_item'] }}/movimientos/nuevo">Registrar</a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-warning" href="/inventario/{{ item['id_item'] }}/editar">Editar</a>
+                            <form class="inline-form" action="/inventario/{{ item['id_item'] }}/eliminar" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este item?')">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not items %}
+                <tr>
+                    <td colspan="9" class="center">No se encontraron ítems en inventario.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Ingreso{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Editar Ingreso</h1>
+            <p>Actualiza la información del ingreso.</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group full">
+                <label>Vehículo</label>
+                <select name="id_vehiculo" required>
+                    {% for vehiculo in vehiculos %}
+                        <option value="{{ vehiculo['id_vehiculo'] }}" {% if vehiculo['id_vehiculo'] == ingreso['id_vehiculo'] %}selected{% endif %}>
+                            {{ vehiculo['placa'] }} - {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} - {{ vehiculo['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha de ingreso</label>
+                <input type="date" name="fecha_ingreso" value="{{ ingreso['fecha_ingreso'] }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Estado</label>
+                <select name="estado" required>
+                    <option value="Ingresado" {% if ingreso['estado'] == 'Ingresado' %}selected{% endif %}>Ingresado</option>
+                    <option value="En revisión" {% if ingreso['estado'] == 'En revisión' %}selected{% endif %}>En revisión</option>
+                    <option value="En reparación" {% if ingreso['estado'] == 'En reparación' %}selected{% endif %}>En reparación</option>
+                    <option value="Finalizado" {% if ingreso['estado'] == 'Finalizado' %}selected{% endif %}>Finalizado</option>
+                    <option value="Entregado" {% if ingreso['estado'] == 'Entregado' %}selected{% endif %}>Entregado</option>
+                </select>
+            </div>
+
+            <div class="form-group full">
+                <label>Mecánico encargado</label>
+                <input type="text" name="mecanico_encargado" value="{{ ingreso['mecanico_encargado'] or '' }}">
+            </div>
+
+            <div class="form-group full">
+                <label>Motivo</label>
+                <textarea name="motivo" required>{{ ingreso['motivo'] }}</textarea>
+            </div>
+
+            <div class="form-group full">
+                <label>Observaciones</label>
+                <textarea name="observaciones">{{ ingreso['observaciones'] or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar cambios</button>
+            <a class="btn btn-secondary" href="/ingresos">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

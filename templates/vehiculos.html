@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Vehículos{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Vehículos</h1>
+            <p>Busca y filtra vehículos registrados en el sistema.</p>
+        </div>
+        <a class="btn btn-primary" href="/vehiculos/nuevo">Registrar vehículo</a>
+    </div>
+
+    <form method="GET" action="/vehiculos" class="mb-3">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Buscar por placa o VIN</label>
+                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Ej: 5015KRC o VIN">
+            </div>
+
+            <div class="form-group">
+                <label>Propietario</label>
+                <select name="id_cliente">
+                    <option value="">Todos</option>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente['id_cliente'] }}" {% if id_cliente == cliente['id_cliente']|string %}selected{% endif %}>
+                            {{ cliente['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Modelo</label>
+                <input type="text" name="modelo" value="{{ modelo or '' }}" placeholder="Ej: Civic SI">
+            </div>
+
+            <div class="form-group">
+                <label>Tipo</label>
+                <input type="text" name="tipo" value="{{ tipo or '' }}" placeholder="Ej: Sedan">
+            </div>
+
+            <div class="form-group">
+                <label>Año</label>
+                <input type="text" name="anio" value="{{ anio or '' }}" placeholder="Ej: 2017">
+            </div>
+
+            <div class="form-group">
+                <label>Color</label>
+                <input type="text" name="color" value="{{ color or '' }}" placeholder="Ej: Negro">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
+            <a class="btn btn-secondary" href="/vehiculos">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Propietario</th>
+                    <th>Placa</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Tipo</th>
+                    <th>VIN</th>
+                    <th>Color</th>
+                    <th>Año</th>
+                    <th>Historial</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vehiculo in vehiculos %}
+                <tr>
+                    <td>{{ vehiculo["id_vehiculo"] }}</td>
+                    <td>{{ vehiculo["nombre_completo"] }}</td>
+                    <td>{{ vehiculo["placa"] }}</td>
+                    <td>{{ vehiculo["marca"] }}</td>
+                    <td>{{ vehiculo["modelo"] }}</td>
+                    <td>{{ vehiculo["tipo"] }}</td>
+                    <td>{{ vehiculo["vin"] }}</td>
+                    <td>{{ vehiculo["color"] }}</td>
+                    <td>{{ vehiculo["anio"] }}</td>
+                    <td>
+                        <a class="btn btn-secondary" href="/vehiculos/{{ vehiculo['id_vehiculo'] }}/historial">Ver historial</a>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-warning" href="/vehiculos/{{ vehiculo['id_vehiculo'] }}/editar">Editar</a>
+                            <form class="inline-form" action="/vehiculos/{{ vehiculo['id_vehiculo'] }}/eliminar" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este vehículo?')">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not vehiculos %}
+                <tr>
+                    <td colspan="11" class="center">No se encontraron vehículos con esos filtros.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Clientes{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Clientes</h1>
+            <p>Lista de clientes registrados en el sistema.</p>
+        </div>
+        <a class="btn btn-primary" href="/clientes/nuevo">Registrar cliente</a>
+    </div>
+
+    <form method="GET" action="/clientes" class="mb-3">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Buscar por nombre o CI / NIT</label>
+                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Ej: Daniela o 1234567">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+            <a class="btn btn-secondary" href="/clientes">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre completo</th>
+                    <th>Teléfono</th>
+                    <th>CI / NIT</th>
+                    <th>Dirección</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td>{{ cliente["id_cliente"] }}</td>
+                    <td>{{ cliente["nombre_completo"] }}</td>
+                    <td>{{ cliente["telefono"] }}</td>
+                    <td>{{ cliente["ci_nit"] }}</td>
+                    <td>{{ cliente["direccion"] }}</td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-warning" href="/clientes/{{ cliente['id_cliente'] }}/editar">Editar</a>
+                            <form class="inline-form" action="/clientes/{{ cliente['id_cliente'] }}/eliminar" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este cliente?')">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not clientes %}
+                <tr>
+                    <td colspan="6" class="center">No se encontraron clientes.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

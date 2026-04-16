@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Cliente{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Registrar Cliente</h1>
+            <p>Completa la información del nuevo cliente.</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Nombre completo</label>
+                <input type="text" name="nombre_completo" required>
+            </div>
+
+            <div class="form-group">
+                <label>Teléfono</label>
+                <input type="text" name="telefono" required>
+            </div>
+
+            <div class="form-group">
+                <label>CI / NIT</label>
+                <input type="text" name="ci_nit">
+            </div>
+
+            <div class="form-group">
+                <label>Dirección</label>
+                <input type="text" name="direccion">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar cliente</button>
+            <a class="btn btn-secondary" href="/clientes">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

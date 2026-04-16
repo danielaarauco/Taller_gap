@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Movimientos de Inventario{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Movimientos de Inventario</h1>
+            <p>Historial de entradas, salidas y ajustes del ítem.</p>
+        </div>
+        <div class="actions">
+            <a class="btn btn-primary" href="/inventario/{{ item['id_item'] }}/movimientos/nuevo">Registrar movimiento</a>
+            <a class="btn btn-secondary" href="/inventario">Volver al inventario</a>
+        </div>
+    </div>
+
+    <div class="info-box mb-3">
+        <p><strong>ID:</strong> {{ item["id_item"] }}</p>
+        <p><strong>Descripción:</strong> {{ item["descripcion"] }}</p>
+        <p><strong>Stock actual:</strong>
+            {% if item["cantidad"] == 0 %}
+                <span class="badge badge-rechazada">Agotado</span>
+            {% else %}
+                {{ item["cantidad"] }}
+            {% endif %}
+        </p>
+        <p><strong>Unidad:</strong> {{ item["unidad_medida"] }}</p>
+        <p><strong>Categoría:</strong> {{ item["categoria"] }}</p>
+        <p><strong>Marca:</strong> {{ item["marca"] }}</p>
+    </div>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Mov.</th>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Cantidad</th>
+                    <th>Motivo</th>
+                    <th>Referencia</th>
+                    <th>Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in movimientos %}
+                <tr>
+                    <td>{{ mov["id_movimiento"] }}</td>
+                    <td>{{ mov["fecha_movimiento"] }}</td>
+                    <td>{{ mov["tipo_movimiento"] }}</td>
+                    <td>{{ mov["cantidad"] }}</td>
+                    <td>{{ mov["motivo"] }}</td>
+                    <td>{{ mov["referencia"] }}</td>
+                    <td>{{ mov["observaciones"] }}</td>
+                </tr>
+                {% endfor %}
+
+                {% if not movimientos %}
+                <tr>
+                    <td colspan="7" class="center">No hay movimientos registrados para este ítem.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

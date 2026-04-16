@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>GAP Performance</h1>
+            <p>Gestiona clientes, vehículos, ingresos y proformas desde un solo lugar.</p>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <h3>Clientes</h3>
+            <p>Registra propietarios y administra su información.</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="/clientes/nuevo">Nuevo cliente</a>
+                <a class="btn btn-secondary" href="/clientes">Ver clientes</a>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>Vehículos</h3>
+            <p>Administra vehículos y relaciónalos con sus dueños.</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="/vehiculos/nuevo">Nuevo vehículo</a>
+                <a class="btn btn-secondary" href="/vehiculos">Ver vehículos</a>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>Ingresos</h3>
+            <p>Controla entradas, estados y el historial de cada vehículo.</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="/ingresos/nuevo">Nuevo ingreso</a>
+                <a class="btn btn-secondary" href="/ingresos">Ver ingresos</a>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>Proformas</h3>
+            <p>Crea proformas, agrega detalles y exporta en PDF.</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="/proformas/nuevo">Nueva proforma</a>
+                <a class="btn btn-secondary" href="/proformas">Ver proformas</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

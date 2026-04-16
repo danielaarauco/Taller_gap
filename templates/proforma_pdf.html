@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Proforma PDF</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 18px 20px 18px 20px;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            color: #000;
+            margin: 0;
+            padding: 0;
+            line-height: 1.1;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .top-table td {
+            vertical-align: top;
+        }
+
+        .logo {
+            width: 250px;
+            height: auto;
+        }
+
+        .numero-fecha {
+            text-align: right;
+            font-size: 11px;
+            line-height: 1.5;
+            padding-top: 2px;
+        }
+
+        .titulo {
+            text-align: center;
+            font-size: 30px;
+            font-weight: bold;
+            margin-top: 8px;
+            margin-bottom: 18px;
+            letter-spacing: 0.5px;
+        }
+
+        .datos-superiores {
+            width: 100%;
+            margin-bottom: 18px;
+        }
+
+        .datos-superiores td {
+            vertical-align: top;
+        }
+
+        .datos-izquierda {
+            width: 62%;
+            padding-top: 42px;
+        }
+
+        .datos-izquierda p {
+            margin: 0 0 22px 0;
+            font-size: 11px;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        .vehiculo-box {
+            width: 180px;
+            border: 1px solid #000;
+            padding: 4px 6px;
+            margin-left: auto;
+            margin-right: 20px;
+        }
+
+        .vehiculo-box .titulo-box {
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .vehiculo-box p {
+            margin: 2px 0;
+            font-size: 11px;
+        }
+
+        .seccion {
+            border: 1px solid #000;
+            background-color: #dce4f2;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 3px 5px;
+            margin-top: 10px;
+            margin-bottom: 0;
+            font-size: 11px;
+        }
+
+        .detalle-table {
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        .detalle-table th,
+        .detalle-table td {
+            border: 1px solid #000;
+            padding: 2px 4px;
+            font-size: 11px;
+        }
+
+        .detalle-table th {
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .subtotal-texto {
+            width: 100%;
+            margin-top: 2px;
+            margin-bottom: 18px;
+            font-size: 11px;
+        }
+
+        .subtotal-texto td {
+            padding: 0;
+            border: 0;
+        }
+
+        .subtotal-label {
+            text-align: left;
+        }
+
+        .subtotal-value {
+            text-align: right;
+            width: 80px;
+            padding-right: 4px;
+        }
+
+        .total-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        .total-table td {
+            border: 1px solid #000;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 3px 4px;
+            vertical-align: middle;
+        }
+
+        .total-label {
+            background-color: #dce4f2;
+            text-transform: uppercase;
+            text-align: left;
+            width: 84%;
+        }
+
+        .total-monto {
+            text-align: right;
+            width: 16%;
+            white-space: nowrap;
+        }
+
+        .literal {
+            text-align: center;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+
+        .observaciones {
+            margin-top: 42px;
+            font-size: 11px;
+        }
+
+        .observaciones .titulo-obs {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .observaciones .contenido {
+            min-height: 20px;
+        }
+
+        .nota-final {
+            text-align: center;
+            font-size: 12px;
+            margin-top: 22px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ENCABEZADO -->
+    <table class="top-table">
+        <tr>
+            <td style="width: 50%;">
+                <img src="/static/logo_taller.png" class="logo">
+            </td>
+            <td style="width: 50%;" class="numero-fecha">
+                <div><span class="label">Numero:</span> {{ proforma["numero_proforma"] }}</div>
+                <div><span class="label">Fecha:</span> {{ proforma["fecha"] }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="titulo">PROFORMA</div>
+
+    <!-- DATOS SUPERIORES -->
+    <table class="datos-superiores">
+        <tr>
+            <td class="datos-izquierda">
+                <p><span class="label">Propietario:</span> {{ proforma["nombre_completo"] }}</p>
+                <p><span class="label">Telefono:</span> {{ proforma["telefono"] }}</p>
+            </td>
+            <td style="width: 38%;">
+                <div class="vehiculo-box">
+                    <div class="titulo-box">VEHICULO</div>
+                    <p><span class="label">Marca:</span> {{ proforma["marca"] }}</p>
+                    <p><span class="label">Modelo:</span> {{ proforma["modelo"] }}</p>
+                    <p><span class="label">Tipo:</span> {{ proforma["tipo"] }}</p>
+                    <p><span class="label">Placa:</span> {{ proforma["placa"] }}</p>
+                    <p><span class="label">Vin:</span> {{ proforma["vin"] }}</p>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- REPUESTOS -->
+    <div class="seccion">REPUESTOS</div>
+    <table class="detalle-table">
+        <thead>
+            <tr>
+                <th>Descripcion</th>
+                <th style="width: 86px;">Cantidad</th>
+                <th style="width: 92px;">P.Unitario</th>
+                <th style="width: 78px;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if repuestos %}
+                {% for item in repuestos %}
+                <tr>
+                    <td>{{ item["descripcion"] }}</td>
+                    <td class="right">{{ item["cantidad"] }}</td>
+                    <td class="right">{{ "%.0f"|format(item["precio_unitario"]) if item["precio_unitario"] == item["precio_unitario"]|int else "%.2f"|format(item["precio_unitario"]) }}</td>
+                    <td class="right">{{ "%.0f"|format(item["subtotal"]) if item["subtotal"] == item["subtotal"]|int else "%.2f"|format(item["subtotal"]) }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td>&nbsp;</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <table class="subtotal-texto">
+        <tr>
+            <td class="subtotal-label">Subtotal repuestos</td>
+            <td class="subtotal-value">
+                {{ "%.0f"|format(proforma["subtotal_repuestos"] or 0) if (proforma["subtotal_repuestos"] or 0) == ((proforma["subtotal_repuestos"] or 0)|int) else "%.2f"|format(proforma["subtotal_repuestos"] or 0) }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- MANO DE OBRA -->
+    <div class="seccion">MANO DE OBRA</div>
+    <table class="detalle-table">
+        <thead>
+            <tr>
+                <th>Descripcion</th>
+                <th style="width: 86px;">Cantidad</th>
+                <th style="width: 92px;">P.Unitario</th>
+                <th style="width: 78px;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if mano_obra %}
+                {% for item in mano_obra %}
+                <tr>
+                    <td>{{ item["descripcion"] }}</td>
+                    <td class="right">{{ item["cantidad"] }}</td>
+                    <td class="right">{{ "%.0f"|format(item["precio_unitario"]) if item["precio_unitario"] == item["precio_unitario"]|int else "%.2f"|format(item["precio_unitario"]) }}</td>
+                    <td class="right">{{ "%.0f"|format(item["subtotal"]) if item["subtotal"] == item["subtotal"]|int else "%.2f"|format(item["subtotal"]) }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td>&nbsp;</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <table class="subtotal-texto">
+        <tr>
+            <td class="subtotal-label">Subtotal mano de obra</td>
+            <td class="subtotal-value">
+                {{ "%.0f"|format(proforma["subtotal_mano_obra"] or 0) if (proforma["subtotal_mano_obra"] or 0) == ((proforma["subtotal_mano_obra"] or 0)|int) else "%.2f"|format(proforma["subtotal_mano_obra"] or 0) }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- TOTAL GENERAL -->
+    <table class="total-table">
+        <tr>
+            <td class="total-label">TOTAL GENERAL</td>
+            <td class="total-monto">
+                {{ "%.0f"|format(proforma["total_general"] or 0) if (proforma["total_general"] or 0) == ((proforma["total_general"] or 0)|int) else "%.2f"|format(proforma["total_general"] or 0) }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- LITERAL -->
+    <div class="literal">
+        SON: {{ proforma["total_literal"] or "" }}
+    </div>
+
+    <!-- OBSERVACIONES -->
+    <div class="observaciones">
+        <div class="titulo-obs">Observaciones:</div>
+        <div class="contenido">{{ proforma["observaciones"] or "" }}</div>
+    </div>
+
+    <!-- NOTA FINAL -->
+    <div class="nota-final">
+        {{ proforma["nota_documento"] or "NO ES VALIDO COMO FACTURA" }}
+    </div>
+
+</body>
+</html>

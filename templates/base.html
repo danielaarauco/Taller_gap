@@ -3,15 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Taller Mecánico GAP PERFORMANCE{% endblock %}</title>
+    <title>{% block title %}Taller Mecánico{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
     <div class="layout">
+        {% if session.get("usuario_id") %}
         <aside class="sidebar">
             <div class="sidebar-header">
                 <img src="{{ url_for('static', filename='logo_taller.png') }}" alt="Logo del taller" class="sidebar-logo">
+                <div class="brand">Taller Mecánico</div>
+                <div style="text-align:center; font-size:14px; color:#cbd5e1;">
+                    {{ session.get("nombre_completo") }}
+                </div>
             </div>
 
             <nav class="sidebar-links">
@@ -21,15 +26,24 @@
                 <a href="/ingresos">Ingresos</a>
                 <a href="/proformas">Proformas</a>
                 <a href="/inventario">Inventario</a>
+                <a href="/recibos">Recibos</a>
+
+                {% if session.get("rol") == "ADMIN" %}
+                    <a href="/usuarios">Usuarios</a>
+                {% endif %}
+
+                <a href="/cambiar-password">Cambiar contraseña</a>
+                <a href="/logout">Cerrar sesión</a>
             </nav>
         </aside>
+        {% endif %}
 
-        <main class="main-content">
+        <main class="main-content" style="{% if not session.get('usuario_id') %}margin-left: 0; width: 100%;{% endif %}">
             <div class="container">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         {% for category, message in messages %}
-                            <div class="alert alert-{{ category }}">
+                            <div class="alert alert-{{ category }} {% if category == 'success' %}flash-message{% endif %}">
                                 {{ message }}
                             </div>
                         {% endfor %}
@@ -40,6 +54,57 @@
             </div>
         </main>
     </div>
+
+    <script>
+        function activarBusquedaEnSelect(inputId, selectId) {
+            const input = document.getElementById(inputId);
+            const select = document.getElementById(selectId);
+
+            if (!input || !select) return;
+
+            const opcionesOriginales = Array.from(select.options);
+
+            input.addEventListener("input", function () {
+                const texto = this.value.toLowerCase().trim();
+                const valorSeleccionado = select.value;
+
+                select.innerHTML = "";
+
+                opcionesOriginales.forEach(opcion => {
+                    if (!opcion.value) {
+                        select.appendChild(opcion.cloneNode(true));
+                        return;
+                    }
+
+                    const textoOpcion = opcion.text.toLowerCase();
+
+                    if (textoOpcion.includes(texto)) {
+                        const nuevaOpcion = opcion.cloneNode(true);
+                        if (opcion.value === valorSeleccionado) {
+                            nuevaOpcion.selected = true;
+                        }
+                        select.appendChild(nuevaOpcion);
+                    }
+                });
+            });
+        }
+    </script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const mensajes = document.querySelectorAll(".flash-message");
+
+        setTimeout(() => {
+            mensajes.forEach(mensaje => {
+                mensaje.style.transition = "opacity 0.5s ease";
+                mensaje.style.opacity = "0";
+
+                setTimeout(() => {
+                    mensaje.remove();
+                }, 500);
+            });
+        }, 2000);
+    });
+</script>
 
 </body>
 </html>

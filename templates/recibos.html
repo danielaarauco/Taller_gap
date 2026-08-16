@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Recibos{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Recibos</h1>
+            <p>Lista de recibos registrados.</p>
+        </div>
+    </div>
+
+    <form method="GET" action="/recibos" class="mb-3">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Número de recibo</label>
+                <input type="text" name="numero_recibo" value="{{ numero_recibo or '' }}" placeholder="Ej: RC-0001">
+            </div>
+
+            <div class="form-group">
+                <label>Número de proforma</label>
+                <input type="text" name="numero_proforma" value="{{ numero_proforma or '' }}" placeholder="Ej: PF-0007">
+            </div>
+
+            <div class="form-group">
+                <label>Fecha desde</label>
+                <input type="date" name="fecha_desde" value="{{ fecha_desde or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Fecha hasta</label>
+                <input type="date" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
+            <a class="btn btn-secondary" href="/recibos">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Número</th>
+                    <th>Fecha</th>
+                    <th>Proforma</th>
+                    <th>Monto recibido</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for recibo in recibos %}
+                <tr>
+                    <td>{{ recibo["id_recibo"] }}</td>
+                    <td>{{ recibo["numero_recibo"] }}</td>
+                    <td>{{ recibo["fecha"] }}</td>
+                    <td>{{ recibo["numero_proforma"] }}</td>
+                    <td>{{ recibo["monto_recibido"] }}</td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-secondary" href="/recibos/{{ recibo['id_recibo'] }}">Ver</a>
+                            <a class="btn btn-warning" href="/recibos/{{ recibo['id_recibo'] }}/editar">Editar</a>
+                            <a class="btn btn-primary" href="/recibos/{{ recibo['id_recibo'] }}/pdf" target="_blank">PDF</a>
+                            {% if session.get("rol") == "ADMIN" %}
+                            <form class="inline-form" action="/recibos/{{ recibo['id_recibo'] }}/eliminar" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este recibo?')">
+                                    Eliminar
+                                </button>
+                            </form>
+                            {% endif %}
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not recibos %}
+                <tr>
+                    <td colspan="6" class="center">No hay recibos registrados con esos filtros.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

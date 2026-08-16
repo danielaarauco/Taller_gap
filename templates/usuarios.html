@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Usuarios</h1>
+            <p>Administración de usuarios del sistema.</p>
+        </div>
+        <a class="btn btn-primary" href="/usuarios/nuevo">Nuevo usuario</a>
+    </div>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Usuario</th>
+                    <th>Nombre completo</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                <tr>
+                    <td>{{ usuario["id_usuario"] }}</td>
+                    <td>{{ usuario["nombre_usuario"] }}</td>
+                    <td>{{ usuario["nombre_completo"] }}</td>
+                    <td>{{ usuario["rol"] }}</td>
+                    <td>
+                        {% if usuario["activo"] == 1 %}
+                            <span class="badge badge-aprobada">Activo</span>
+                        {% else %}
+                            <span class="badge badge-rechazada">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-warning" href="/usuarios/{{ usuario['id_usuario'] }}/editar">Editar</a>
+                            <form class="inline-form" action="/usuarios/{{ usuario['id_usuario'] }}/resetear-password" method="POST">
+                                <button class="btn btn-secondary" type="submit" onclick="return confirm('¿Restablecer contraseña a 123456?')">
+                                    Resetear contraseña
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not usuarios %}
+                <tr>
+                    <td colspan="6" class="center">No hay usuarios registrados.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

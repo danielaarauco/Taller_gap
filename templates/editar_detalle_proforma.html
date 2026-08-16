@@ -13,22 +13,32 @@
 
     <form method="POST">
         <div class="form-grid">
-            <div class="form-group">
-                <label>Tipo de ítem</label>
-                <select name="tipo_item" required>
-                    <option value="REPUESTO" {% if detalle['tipo_item'] == 'REPUESTO' %}selected{% endif %}>REPUESTO</option>
-                    <option value="MANO_OBRA" {% if detalle['tipo_item'] == 'MANO_OBRA' %}selected{% endif %}>MANO_OBRA</option>
-                </select>
-            </div>
+            {% if item_inventario %}
+                <div class="form-group full">
+                    <label>Repuesto (inventario)</label>
+                    <input type="text" value="{{ item_inventario['descripcion'] }}{% if item_inventario['marca'] %} - {{ item_inventario['marca'] }}{% endif %}" disabled>
+                    <p style="color:#6b7280; font-size:13px; margin:6px 0 0;">
+                        Stock disponible actualmente: {{ item_inventario["cantidad"] }} (sin contar esta línea)
+                    </p>
+                </div>
+            {% else %}
+                <div class="form-group">
+                    <label>Tipo de ítem</label>
+                    <select name="tipo_item" required>
+                        <option value="REPUESTO" {% if detalle['tipo_item'] == 'REPUESTO' %}selected{% endif %}>REPUESTO (externo)</option>
+                        <option value="MANO_OBRA" {% if detalle['tipo_item'] == 'MANO_OBRA' %}selected{% endif %}>MANO DE OBRA</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Descripción</label>
+                    <input type="text" name="descripcion" value="{{ detalle['descripcion'] }}" required>
+                </div>
+            {% endif %}
 
             <div class="form-group">
                 <label>Cantidad</label>
                 <input type="number" name="cantidad" min="1" value="{{ detalle['cantidad'] }}" required>
-            </div>
-
-            <div class="form-group full">
-                <label>Descripción</label>
-                <input type="text" name="descripcion" value="{{ detalle['descripcion'] }}" required>
             </div>
 
             <div class="form-group">

@@ -7,46 +7,80 @@
     <div class="page-header">
         <div>
             <h1>Agregar detalle a la proforma</h1>
-            <p>Agrega repuestos o mano de obra a la proforma seleccionada.</p>
+            <p>Agrega repuestos (de inventario o comprados de forma externa) o mano de obra a la proforma seleccionada.</p>
         </div>
     </div>
 
     <div class="info-grid mb-3">
         <div class="info-box">
             <p><strong>Proforma:</strong> {{ proforma["numero_proforma"] }}</p>
-            <p><strong>Cliente:</strong> {{ proforma["nombre_completo"] }}</p>
+            <p><strong>Cliente:</strong> {{ proforma["nombre_completo"] or proforma["nombre_cliente_manual"] }}</p>
         </div>
 
         <div class="info-box">
-            <p><strong>Vehículo:</strong> {{ proforma["placa"] }}</p>
-            <p><strong>Detalle:</strong> {{ proforma["marca"] }} {{ proforma["modelo"] }}</p>
+            <p><strong>Vehículo:</strong> {{ proforma["placa"] or proforma["placa_manual"] }}</p>
+            <p><strong>Detalle:</strong> {{ proforma["marca"] or proforma["marca_manual"] }} {{ proforma["modelo"] or proforma["modelo_manual"] }}</p>
         </div>
     </div>
 
     <form method="POST">
         <div class="form-grid">
-            <div class="form-group">
+            <div class="form-group full">
                 <label>Tipo de ítem</label>
-                <select name="tipo_item" required>
+                <select name="modo" id="modo" required onchange="cambiarModo()">
                     <option value="">Seleccione</option>
-                    <option value="REPUESTO">REPUESTO</option>
-                    <option value="MANO_OBRA">MANO DE OBRA</option>
+                    <option value="inventario">Repuesto del inventario</option>
+                    <option value="externo">Repuesto comprado de forma externa</option>
+                    <option value="mano_obra">Mano de obra</option>
                 </select>
             </div>
+        </div>
 
+        <div id="bloque_inventario" style="display:none;">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Buscar repuesto en inventario</label>
+                    <input type="text" id="buscar_item" placeholder="Escribe descripción, categoría o marca">
+                </div>
+
+                <div class="form-group full">
+                    <label>Repuesto</label>
+                    <select name="id_item" id="id_item" onchange="mostrarStock()">
+                        <option value="">Seleccione un repuesto</option>
+                        {% for item in items_inventario %}
+                            <option value="{{ item['id_item'] }}"
+                                    data-stock="{{ item['cantidad'] }}"
+                                    {% if item['cantidad'] == 0 %}disabled{% endif %}>
+                                {{ item['descripcion'] }}{% if item['marca'] %} - {{ item['marca'] }}{% endif %} (Stock: {{ item['cantidad'] }} - Precio venta: {{ "%.2f"|format(item['precio_venta'] or 0) }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <p id="stock_disponible" style="color:#6b7280; font-size:13px; margin:0;"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="bloque_manual" style="display:none;">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Descripción</label>
+                    <input type="text" name="descripcion" id="descripcion_manual">
+                </div>
+
+                <div class="form-group">
+                    <label>Precio unitario</label>
+                    <input type="number" step="0.01" name="precio_unitario" id="precio_manual" min="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-grid">
             <div class="form-group">
                 <label>Cantidad</label>
-                <input type="number" name="cantidad" min="1" required>
-            </div>
-
-            <div class="form-group full">
-                <label>Descripción</label>
-                <input type="text" name="descripcion" required>
-            </div>
-
-            <div class="form-group">
-                <label>Precio unitario</label>
-                <input type="number" step="0.01" name="precio_unitario" min="0" required>
+                <input type="number" name="cantidad" id="cantidad" min="1" required>
             </div>
         </div>
 
@@ -56,4 +90,50 @@
         </div>
     </form>
 </div>
+
+<script>
+    activarBusquedaEnSelect("buscar_item", "id_item");
+
+    function cambiarModo() {
+        const modo = document.getElementById("modo").value;
+        const bloqueInventario = document.getElementById("bloque_inventario");
+        const bloqueManual = document.getElementById("bloque_manual");
+        const idItem = document.getElementById("id_item");
+        const descripcionManual = document.getElementById("descripcion_manual");
+        const precioManual = document.getElementById("precio_manual");
+        const cantidad = document.getElementById("cantidad");
+
+        bloqueInventario.style.display = "none";
+        bloqueManual.style.display = "none";
+        idItem.required = false;
+        descripcionManual.required = false;
+        precioManual.required = false;
+        cantidad.removeAttribute("max");
+        document.getElementById("stock_disponible").textContent = "";
+
+        if (modo === "inventario") {
+            bloqueInventario.style.display = "block";
+            idItem.required = true;
+        } else if (modo === "externo" || modo === "mano_obra") {
+            bloqueManual.style.display = "block";
+            descripcionManual.required = true;
+            precioManual.required = true;
+        }
+    }
+
+    function mostrarStock() {
+        const select = document.getElementById("id_item");
+        const opcion = select.options[select.selectedIndex];
+        const stockTexto = document.getElementById("stock_disponible");
+        const cantidad = document.getElementById("cantidad");
+
+        if (opcion && opcion.value) {
+            stockTexto.textContent = "Stock disponible: " + opcion.dataset.stock;
+            cantidad.max = opcion.dataset.stock;
+        } else {
+            stockTexto.textContent = "";
+            cantidad.removeAttribute("max");
+        }
+    }
+</script>
 {% endblock %}

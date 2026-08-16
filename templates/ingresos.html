@@ -94,9 +94,11 @@
                     <td>
                         <div class="actions">
                             <a class="btn btn-warning" href="/ingresos/{{ ingreso['id_ingreso'] }}/editar">Editar</a>
+                            {% if session.get("rol") == "ADMIN" %}
                             <form class="inline-form" action="/ingresos/{{ ingreso['id_ingreso'] }}/eliminar" method="POST">
                                 <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este ingreso?')">Eliminar</button>
                             </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

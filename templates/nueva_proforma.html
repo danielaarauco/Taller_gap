@@ -7,7 +7,7 @@
     <div class="page-header">
         <div>
             <h1>Registrar Proforma</h1>
-            <p>Crea una nueva proforma y asóciala a un cliente y vehículo.</p>
+            <p>Crea una proforma formal o una proforma rápida.</p>
         </div>
     </div>
 
@@ -23,30 +23,93 @@
                 <input type="date" name="fecha" required>
             </div>
 
-            <div class="form-group">
-                <label>Cliente</label>
-                <select name="id_cliente" id="id_cliente" required>
-                    <option value="">Seleccione un cliente</option>
-                    {% for cliente in clientes %}
-                        <option value="{{ cliente['id_cliente'] }}">
-                            {{ cliente['nombre_completo'] }}
-                        </option>
-                    {% endfor %}
+            <div class="form-group full">
+                <label>Tipo de proforma</label>
+                <select name="tipo_proforma" id="tipo_proforma" required>
+                    <option value="FORMAL">FORMAL</option>
+                    <option value="RAPIDA">RÁPIDA</option>
                 </select>
             </div>
+        </div>
 
-            <div class="form-group">
-                <label>Vehículo</label>
-                <select name="id_vehiculo" id="id_vehiculo" required>
-                    <option value="">Seleccione un vehículo</option>
-                    {% for vehiculo in vehiculos %}
-                        <option value="{{ vehiculo['id_vehiculo'] }}" data-cliente="{{ vehiculo['id_cliente'] }}">
-                            {{ vehiculo['placa'] }} - {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} - {{ vehiculo['nombre_completo'] }}
-                        </option>
-                    {% endfor %}
-                </select>
+        <div id="bloque_formal">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Buscar cliente</label>
+                    <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono">
+                </div>
+
+                <div class="form-group">
+                    <label>Cliente</label>
+                    <select name="id_cliente" id="id_cliente">
+                        <option value="">Seleccione un cliente</option>
+                        {% for cliente in clientes %}
+                            <option value="{{ cliente['id_cliente'] }}">
+                                {{ cliente['nombre_completo'] }} - {{ cliente['telefono'] }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group full">
+                    <label>Buscar vehículo</label>
+                    <input type="text" id="buscar_vehiculo" placeholder="Escribe placa, marca, modelo o propietario">
+                </div>
+
+                <div class="form-group">
+                    <label>Vehículo</label>
+                    <select name="id_vehiculo" id="id_vehiculo">
+                        <option value="">Seleccione un vehículo</option>
+                        {% for vehiculo in vehiculos %}
+                            <option value="{{ vehiculo['id_vehiculo'] }}" data-cliente="{{ vehiculo['id_cliente'] }}">
+                                {{ vehiculo['placa'] }} - {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} - {{ vehiculo['nombre_completo'] }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
+        </div>
 
+        <div id="bloque_rapida" style="display:none;">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nombre del cliente</label>
+                    <input type="text" name="nombre_cliente_manual">
+                </div>
+
+                <div class="form-group">
+                    <label>Teléfono</label>
+                    <input type="text" name="telefono_manual">
+                </div>
+
+                <div class="form-group">
+                    <label>Marca</label>
+                    <input type="text" name="marca_manual">
+                </div>
+
+                <div class="form-group">
+                    <label>Modelo</label>
+                    <input type="text" name="modelo_manual">
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <input type="text" name="tipo_manual">
+                </div>
+
+                <div class="form-group">
+                    <label>Placa</label>
+                    <input type="text" name="placa_manual">
+                </div>
+
+                <div class="form-group full">
+                    <label>VIN</label>
+                    <input type="text" name="vin_manual">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-grid">
             <div class="form-group full">
                 <label>Observaciones</label>
                 <textarea name="observaciones"></textarea>
@@ -61,20 +124,48 @@
 </div>
 
 <script>
+    const tipoSelect = document.getElementById("tipo_proforma");
+    const bloqueFormal = document.getElementById("bloque_formal");
+    const bloqueRapida = document.getElementById("bloque_rapida");
+
     const clienteSelect = document.getElementById("id_cliente");
     const vehiculoSelect = document.getElementById("id_vehiculo");
     const opcionesVehiculo = Array.from(vehiculoSelect.options);
 
-    clienteSelect.addEventListener("change", function () {
-        const clienteId = this.value;
+    function actualizarTipoProforma() {
+        if (tipoSelect.value === "FORMAL") {
+            bloqueFormal.style.display = "block";
+            bloqueRapida.style.display = "none";
+        } else {
+            bloqueFormal.style.display = "none";
+            bloqueRapida.style.display = "block";
+        }
+    }
+
+    function filtrarVehiculosPorCliente() {
+        const clienteId = clienteSelect.value;
         vehiculoSelect.innerHTML = '<option value="">Seleccione un vehículo</option>';
 
         opcionesVehiculo.forEach(opcion => {
             if (!opcion.value) return;
             if (opcion.dataset.cliente === clienteId) {
-                vehiculoSelect.appendChild(opcion);
+                vehiculoSelect.appendChild(opcion.cloneNode(true));
             }
         });
-    });
+
+        const inputBuscarVehiculo = document.getElementById("buscar_vehiculo");
+        if (inputBuscarVehiculo) {
+            inputBuscarVehiculo.value = "";
+        }
+    }
+
+    tipoSelect.addEventListener("change", actualizarTipoProforma);
+    clienteSelect.addEventListener("change", filtrarVehiculosPorCliente);
+
+    window.onload = function () {
+        actualizarTipoProforma();
+        activarBusquedaEnSelect("buscar_cliente", "id_cliente");
+        activarBusquedaEnSelect("buscar_vehiculo", "id_vehiculo");
+    };
 </script>
 {% endblock %}

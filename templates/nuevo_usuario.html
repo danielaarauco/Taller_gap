@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo usuario{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 700px; margin: 0 auto;">
+    <div class="page-header">
+        <div>
+            <h1>Nuevo usuario</h1>
+            <p>Crear un nuevo usuario del sistema.</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Usuario</label>
+                <input type="text" name="nombre_usuario" required>
+            </div>
+
+            <div class="form-group">
+                <label>Nombre completo</label>
+                <input type="text" name="nombre_completo">
+            </div>
+
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" name="password" required>
+            </div>
+
+            <div class="form-group">
+                <label>Rol</label>
+                <select name="rol" required>
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="TRABAJADOR">TRABAJADOR</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar usuario</button>
+            <a class="btn btn-secondary" href="/usuarios">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

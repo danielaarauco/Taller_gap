@@ -47,6 +47,8 @@
                     <th>ESTADO</th>
                     <th>CATEGORIA</th>
                     <th>MARCA</th>
+                    <th>PRECIO COMPRA</th>
+                    <th>PRECIO VENTA</th>
                     <th>MOVIMIENTOS</th>
                     <th>ACCIONES</th>
                 </tr>
@@ -67,6 +69,8 @@
                     <td>{{ item["estado"] }}</td>
                     <td>{{ item["categoria"] }}</td>
                     <td>{{ item["marca"] }}</td>
+                    <td>{{ "%.2f"|format(item["precio_compra"] or 0) }}</td>
+                    <td>{{ "%.2f"|format(item["precio_venta"] or 0) }}</td>
                     <td>
                         <div class="actions">
                             <a class="btn btn-secondary" href="/inventario/{{ item['id_item'] }}/movimientos">Ver</a>
@@ -76,9 +80,11 @@
                     <td>
                         <div class="actions">
                             <a class="btn btn-warning" href="/inventario/{{ item['id_item'] }}/editar">Editar</a>
+                            {% if session.get("rol") == "ADMIN" %}
                             <form class="inline-form" action="/inventario/{{ item['id_item'] }}/eliminar" method="POST">
                                 <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este item?')">Eliminar</button>
                             </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -86,7 +92,7 @@
 
                 {% if not items %}
                 <tr>
-                    <td colspan="9" class="center">No se encontraron ítems en inventario.</td>
+                    <td colspan="11" class="center">No se encontraron ítems en inventario.</td>
                 </tr>
                 {% endif %}
             </tbody>

@@ -50,6 +50,7 @@
                     <th>ID</th>
                     <th>Número</th>
                     <th>Fecha</th>
+                    <th>Tipo</th>
                     <th>Cliente</th>
                     <th>Vehículo</th>
                     <th>Total</th>
@@ -64,9 +65,26 @@
                     <td>{{ proforma["id_proforma"] }}</td>
                     <td>{{ proforma["numero_proforma"] }}</td>
                     <td>{{ proforma["fecha"] }}</td>
-                    <td>{{ proforma["nombre_completo"] }}</td>
-                    <td>{{ proforma["placa"] }} - {{ proforma["marca"] }} {{ proforma["modelo"] }}</td>
+                    <td>{{ proforma["tipo_proforma"] }}</td>
+
+                    <td>
+                        {% if proforma["tipo_proforma"] == "FORMAL" %}
+                            {{ proforma["nombre_completo"] }}
+                        {% else %}
+                            {{ proforma["nombre_cliente_manual"] }}
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if proforma["tipo_proforma"] == "FORMAL" %}
+                            {{ proforma["placa"] }} - {{ proforma["marca"] }} {{ proforma["modelo"] }}
+                        {% else %}
+                            {{ proforma["placa_manual"] or '' }}{% if proforma["placa_manual"] and (proforma["marca_manual"] or proforma["modelo_manual"]) %} - {% endif %}{{ proforma["marca_manual"] or '' }} {{ proforma["modelo_manual"] or '' }}
+                        {% endif %}
+                    </td>
+
                     <td>{{ proforma["total_general"] }}</td>
+
                     <td>
                         {% if proforma["estado"] == "Pendiente" %}
                             <span class="badge badge-pendiente">Pendiente</span>
@@ -78,6 +96,7 @@
                             {{ proforma["estado"] }}
                         {% endif %}
                     </td>
+
                     <td>
                         {% if proforma["pago"] == "Realizado" %}
                             <span class="badge badge-aprobada">Realizado</span>
@@ -85,14 +104,17 @@
                             <span class="badge badge-pendiente">Pendiente</span>
                         {% endif %}
                     </td>
+
                     <td>
                         <div class="actions">
                             <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}">Ver</a>
                             <a class="btn btn-warning" href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
                             <a class="btn btn-primary" href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Detalle</a>
+                            {% if session.get("rol") == "ADMIN" %}
                             <form class="inline-form" action="/proformas/{{ proforma['id_proforma'] }}/eliminar" method="POST">
                                 <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar esta proforma?')">Eliminar</button>
                             </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -100,7 +122,7 @@
 
                 {% if not proformas %}
                 <tr>
-                    <td colspan="9" class="center">No se encontraron proformas con esos filtros.</td>
+                    <td colspan="10" class="center">No se encontraron proformas con esos filtros.</td>
                 </tr>
                 {% endif %}
             </tbody>

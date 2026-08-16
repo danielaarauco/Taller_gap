@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Recibo{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Editar Recibo</h1>
+            <p>Actualiza la información del recibo {{ recibo["numero_recibo"] }}.</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Número de recibo</label>
+                <input type="text" value="{{ recibo['numero_recibo'] }}" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Proforma</label>
+                <input type="text" value="{{ recibo['numero_proforma'] }}" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" value="{{ recibo['fecha'] }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Monto recibido</label>
+                <input type="number" step="0.01" name="monto_recibido" value="{{ recibo['monto_recibido'] }}" required>
+            </div>
+
+            <div class="form-group full">
+                <label>Concepto</label>
+                <input type="text" name="concepto" value="{{ recibo['concepto'] or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Recibí de / Nombre de quien paga</label>
+                <input type="text" name="nombre_recibe" value="{{ recibo['nombre_recibe'] or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>CI de quien paga</label>
+                <input type="text" name="ci_recibe" value="{{ recibo['ci_recibe'] or '' }}">
+            </div>
+
+            <div class="form-group full">
+                <label>Texto “Recibí conforme”</label>
+                <textarea name="recibi_conforme">{{ recibo['recibi_conforme'] or 'RECIBI CONFORME' }}</textarea>
+            </div>
+
+            <div class="form-group full">
+                <label>Observaciones</label>
+                <textarea name="observaciones">{{ recibo['observaciones'] or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar cambios</button>
+            <a class="btn btn-secondary" href="/recibos/{{ recibo['id_recibo'] }}">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

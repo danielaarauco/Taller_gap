@@ -6,7 +6,7 @@
     <style>
         @page {
             size: A4;
-            margin: 18px 20px 18px 20px;
+            margin: 28px 40px 28px 40px;
         }
 
         body {
@@ -28,7 +28,7 @@
         }
 
         .logo {
-            width: 250px;
+            width: 200px;
             height: auto;
         }
 
@@ -41,7 +41,7 @@
 
         .titulo {
             text-align: center;
-            font-size: 30px;
+            font-size: 28px;
             font-weight: bold;
             margin-top: 8px;
             margin-bottom: 18px;
@@ -82,6 +82,7 @@
         .vehiculo-box .titulo-box {
             font-weight: bold;
             text-transform: uppercase;
+            background-color: #dce4f2;
             margin-bottom: 4px;
         }
 
@@ -104,6 +105,7 @@
         .detalle-table {
             margin-top: 0;
             margin-bottom: 0;
+            table-layout: fixed;
         }
 
         .detalle-table th,
@@ -223,17 +225,32 @@
     <table class="datos-superiores">
         <tr>
             <td class="datos-izquierda">
-                <p><span class="label">Propietario:</span> {{ proforma["nombre_completo"] }}</p>
-                <p><span class="label">Telefono:</span> {{ proforma["telefono"] }}</p>
+                {% if proforma["tipo_proforma"] == "FORMAL" %}
+                    <p><span class="label">Propietario:</span> {{ proforma["nombre_completo"] }}</p>
+                    <p><span class="label">Telefono:</span> {{ proforma["telefono"] }}</p>
+                {% else %}
+                    <p><span class="label">Propietario:</span> {{ proforma["nombre_cliente_manual"] }}</p>
+                    <p><span class="label">Telefono:</span> {{ proforma["telefono_manual"] }}</p>
+                {% endif %}
             </td>
+
             <td style="width: 38%;">
                 <div class="vehiculo-box">
                     <div class="titulo-box">VEHICULO</div>
-                    <p><span class="label">Marca:</span> {{ proforma["marca"] }}</p>
-                    <p><span class="label">Modelo:</span> {{ proforma["modelo"] }}</p>
-                    <p><span class="label">Tipo:</span> {{ proforma["tipo"] }}</p>
-                    <p><span class="label">Placa:</span> {{ proforma["placa"] }}</p>
-                    <p><span class="label">Vin:</span> {{ proforma["vin"] }}</p>
+
+                    {% if proforma["tipo_proforma"] == "FORMAL" %}
+                        <p><span class="label">Marca:</span> {{ proforma["marca"] }}</p>
+                        <p><span class="label">Modelo:</span> {{ proforma["modelo"] }}</p>
+                        <p><span class="label">Tipo:</span> {{ proforma["tipo"] }}</p>
+                        <p><span class="label">Placa:</span> {{ proforma["placa"] }}</p>
+                        <p><span class="label">Vin:</span> {{ proforma["vin"] }}</p>
+                    {% else %}
+                        <p><span class="label">Marca:</span> {{ proforma["marca_manual"] }}</p>
+                        <p><span class="label">Modelo:</span> {{ proforma["modelo_manual"] }}</p>
+                        <p><span class="label">Tipo:</span> {{ proforma["tipo_manual"] }}</p>
+                        <p><span class="label">Placa:</span> {{ proforma["placa_manual"] }}</p>
+                        <p><span class="label">Vin:</span> {{ proforma["vin_manual"] }}</p>
+                    {% endif %}
                 </div>
             </td>
         </tr>
@@ -244,10 +261,10 @@
     <table class="detalle-table">
         <thead>
             <tr>
-                <th>Descripcion</th>
-                <th style="width: 86px;">Cantidad</th>
-                <th style="width: 92px;">P.Unitario</th>
-                <th style="width: 78px;">Subtotal</th>
+                <th style="width: 68%;">Descripcion</th>
+                <th style="width: 10%;">Cantidad</th>
+                <th style="width: 11%;">P.Unitario</th>
+                <th style="width: 11%;">Subtotal</th>
             </tr>
         </thead>
         <tbody>
@@ -256,16 +273,17 @@
                 <tr>
                     <td>{{ item["descripcion"] }}</td>
                     <td class="right">{{ item["cantidad"] }}</td>
-                    <td class="right">{{ "%.0f"|format(item["precio_unitario"]) if item["precio_unitario"] == item["precio_unitario"]|int else "%.2f"|format(item["precio_unitario"]) }}</td>
-                    <td class="right">{{ "%.0f"|format(item["subtotal"]) if item["subtotal"] == item["subtotal"]|int else "%.2f"|format(item["subtotal"]) }}</td>
+                    <td class="right">
+                        {{ "%.0f"|format(item["precio_unitario"]) if item["precio_unitario"] == item["precio_unitario"]|int else "%.2f"|format(item["precio_unitario"]) }}
+                    </td>
+                    <td class="right">
+                        {{ "%.0f"|format(item["subtotal"]) if item["subtotal"] == item["subtotal"]|int else "%.2f"|format(item["subtotal"]) }}
+                    </td>
                 </tr>
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td>&nbsp;</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
+                    <td colspan="4" style="height: 20px;">&nbsp;</td>
                 </tr>
             {% endif %}
         </tbody>
@@ -285,10 +303,10 @@
     <table class="detalle-table">
         <thead>
             <tr>
-                <th>Descripcion</th>
-                <th style="width: 86px;">Cantidad</th>
-                <th style="width: 92px;">P.Unitario</th>
-                <th style="width: 78px;">Subtotal</th>
+                <th style="width: 68%;">Descripcion</th>
+                <th style="width: 10%;">Cantidad</th>
+                <th style="width: 11%;">P.Unitario</th>
+                <th style="width: 11%;">Subtotal</th>
             </tr>
         </thead>
         <tbody>
@@ -297,16 +315,17 @@
                 <tr>
                     <td>{{ item["descripcion"] }}</td>
                     <td class="right">{{ item["cantidad"] }}</td>
-                    <td class="right">{{ "%.0f"|format(item["precio_unitario"]) if item["precio_unitario"] == item["precio_unitario"]|int else "%.2f"|format(item["precio_unitario"]) }}</td>
-                    <td class="right">{{ "%.0f"|format(item["subtotal"]) if item["subtotal"] == item["subtotal"]|int else "%.2f"|format(item["subtotal"]) }}</td>
+                    <td class="right">
+                        {{ "%.0f"|format(item["precio_unitario"]) if item["precio_unitario"] == item["precio_unitario"]|int else "%.2f"|format(item["precio_unitario"]) }}
+                    </td>
+                    <td class="right">
+                        {{ "%.0f"|format(item["subtotal"]) if item["subtotal"] == item["subtotal"]|int else "%.2f"|format(item["subtotal"]) }}
+                    </td>
                 </tr>
                 {% endfor %}
             {% else %}
                 <tr>
-                    <td>&nbsp;</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
+                    <td colspan="4" style="height: 20px;">&nbsp;</td>
                 </tr>
             {% endif %}
         </tbody>
@@ -344,7 +363,7 @@
 
     <!-- NOTA FINAL -->
     <div class="nota-final">
-        {{ proforma["nota_documento"] or "NO ES VALIDO COMO FACTURA" }}
+        {{ proforma["nota_documento"] or "* NO ES VALIDO COMO FACTURA *" }}
     </div>
 
 </body>

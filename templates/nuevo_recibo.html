@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Recibo{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Registrar Recibo</h1>
+            <p>Crear recibo a partir de la proforma {{ proforma["numero_proforma"] }}</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Número de recibo</label>
+                <input type="text" value="{{ nuevo_numero }}" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" required>
+            </div>
+
+            <div class="form-group">
+                <label>Monto recibido</label>
+                <input type="number" step="0.01" name="monto_recibido" required>
+            </div>
+
+            <div class="form-group">
+                <label>Concepto</label>
+                <input type="text" name="concepto" placeholder="Ej: Pago por reparación">
+            </div>
+
+            <div class="form-group">
+                <label>Recibí de</label>
+                <input type="text" name="nombre_recibe">
+            </div>
+
+            <div class="form-group">
+                <label>con numero de CI</label>
+                <input type="text" name="ci_recibe">
+            </div>
+
+            <div class="form-group full">
+                <label>Texto “Recibí conforme”</label>
+                <textarea name="recibi_conforme">RECIBI CONFORME</textarea>
+            </div>
+
+            <div class="form-group full">
+                <label>Observaciones</label>
+                <textarea name="observaciones"></textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar recibo</button>
+            <a class="btn btn-secondary" href="/proformas">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

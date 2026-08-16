@@ -13,29 +13,47 @@
             <a class="btn btn-primary" href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Agregar detalle</a>
             <a class="btn btn-warning" href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
             <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}/pdf" target="_blank">Exportar PDF</a>
+            <a class="btn btn-success" href="/recibos/nuevo/{{ proforma['id_proforma'] }}">Crear recibo</a>
         </div>
     </div>
 
     <div class="info-grid mb-3">
         <div class="info-box">
             <h3>Cliente</h3>
-            <p><strong>Nombre:</strong> {{ proforma["nombre_completo"] }}</p>
-            <p><strong>Teléfono:</strong> {{ proforma["telefono"] }}</p>
+
+            {% if proforma["tipo_proforma"] == "FORMAL" %}
+                <p><strong>Nombre:</strong> {{ proforma["nombre_completo"] }}</p>
+                <p><strong>Teléfono:</strong> {{ proforma["telefono"] }}</p>
+            {% else %}
+                <p><strong>Nombre:</strong> {{ proforma["nombre_cliente_manual"] }}</p>
+                <p><strong>Teléfono:</strong> {{ proforma["telefono_manual"] }}</p>
+            {% endif %}
         </div>
 
         <div class="info-box">
             <h3>Vehículo</h3>
-            <p><strong>Placa:</strong> {{ proforma["placa"] }}</p>
-            <p><strong>Marca:</strong> {{ proforma["marca"] }}</p>
-            <p><strong>Modelo:</strong> {{ proforma["modelo"] }}</p>
-            <p><strong>Tipo:</strong> {{ proforma["tipo"] }}</p>
-            <p><strong>VIN:</strong> {{ proforma["vin"] }}</p>
+
+            {% if proforma["tipo_proforma"] == "FORMAL" %}
+                <p><strong>Placa:</strong> {{ proforma["placa"] }}</p>
+                <p><strong>Marca:</strong> {{ proforma["marca"] }}</p>
+                <p><strong>Modelo:</strong> {{ proforma["modelo"] }}</p>
+                <p><strong>Tipo:</strong> {{ proforma["tipo"] }}</p>
+                <p><strong>VIN:</strong> {{ proforma["vin"] }}</p>
+            {% else %}
+                <p><strong>Placa:</strong> {{ proforma["placa_manual"] }}</p>
+                <p><strong>Marca:</strong> {{ proforma["marca_manual"] }}</p>
+                <p><strong>Modelo:</strong> {{ proforma["modelo_manual"] }}</p>
+                <p><strong>Tipo:</strong> {{ proforma["tipo_manual"] }}</p>
+                <p><strong>VIN:</strong> {{ proforma["vin_manual"] }}</p>
+            {% endif %}
         </div>
     </div>
 
     <div class="info-box mb-3">
         <p><strong>Fecha:</strong> {{ proforma["fecha"] }}</p>
+        <p><strong>Tipo de proforma:</strong> {{ proforma["tipo_proforma"] }}</p>
         <p><strong>Estado:</strong> {{ proforma["estado"] }}</p>
+        <p><strong>Pago:</strong> {{ proforma["pago"] }}</p>
         <p><strong>Observaciones:</strong> {{ proforma["observaciones"] }}</p>
         <p><strong>Nota:</strong> {{ proforma["nota_documento"] }}</p>
     </div>
@@ -53,6 +71,7 @@
             <thead>
                 <tr>
                     <th>Descripción</th>
+                    <th>Origen</th>
                     <th>Cantidad</th>
                     <th>Precio unitario</th>
                     <th>Subtotal</th>
@@ -64,23 +83,43 @@
                     {% if item["tipo_item"] == "REPUESTO" %}
                     <tr>
                         <td>{{ item["descripcion"] }}</td>
+                        <td>
+                            {% if item["id_item"] %}
+                                <span class="badge badge-aprobada">Inventario</span>
+                            {% else %}
+                                <span class="badge badge-pendiente">Externo</span>
+                            {% endif %}
+                        </td>
                         <td>{{ item["cantidad"] }}</td>
                         <td>{{ item["precio_unitario"] }}</td>
                         <td>{{ item["subtotal"] }}</td>
                         <td>
                             <div class="actions">
                                 <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
+                                {% if session.get("rol") == "ADMIN" %}
                                 <form class="inline-form" action="/detalle-proforma/{{ item['id_detalle'] }}/eliminar" method="POST">
                                     <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
                                 </form>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
                     {% endif %}
                 {% endfor %}
+
+                {% set hay_repuestos = false %}
+                {% for item in detalles %}
+                    {% if item["tipo_item"] == "REPUESTO" %}
+                        {% set hay_repuestos = true %}
+                    {% endif %}
+                {% endfor %}
             </tbody>
         </table>
     </div>
+
+    {% if not detalles %}
+        <p>No hay repuestos registrados.</p>
+    {% endif %}
 </div>
 
 <div class="card">
@@ -112,9 +151,11 @@
                         <td>
                             <div class="actions">
                                 <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
+                                {% if session.get("rol") == "ADMIN" %}
                                 <form class="inline-form" action="/detalle-proforma/{{ item['id_detalle'] }}/eliminar" method="POST">
                                     <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
                                 </form>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -123,6 +164,10 @@
             </tbody>
         </table>
     </div>
+
+    {% if not detalles %}
+        <p>No hay mano de obra registrada.</p>
+    {% endif %}
 </div>
 
 <div class="card">
@@ -139,9 +184,11 @@
     </div>
 
     <div class="form-actions" style="margin-top: 20px;">
+        {% if session.get("rol") == "ADMIN" %}
         <form class="inline-form" action="/proformas/{{ proforma['id_proforma'] }}/eliminar" method="POST">
             <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar esta proforma?')">Eliminar proforma</button>
         </form>
+        {% endif %}
         <a class="btn btn-secondary" href="/proformas">Volver a proformas</a>
     </div>
 </div>

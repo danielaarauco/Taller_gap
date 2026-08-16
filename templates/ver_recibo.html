@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Ver Recibo{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Recibo {{ recibo["numero_recibo"] }}</h1>
+            <p>Detalle completo del recibo generado desde la proforma {{ recibo["numero_proforma"] }}.</p>
+        </div>
+        <div class="actions">
+            <a class="btn btn-warning" href="/recibos/{{ recibo['id_recibo'] }}/editar">Editar</a>
+            <a class="btn btn-secondary" href="/recibos/{{ recibo['id_recibo'] }}/pdf" target="_blank">Exportar PDF</a>
+            {% if session.get("rol") == "ADMIN" %}
+            <form class="inline-form" action="/recibos/{{ recibo['id_recibo'] }}/eliminar" method="POST">
+                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este recibo?')">
+                    Eliminar
+                </button>
+            </form>
+            {% endif %}
+            <a class="btn btn-secondary" href="/recibos">Volver a recibos</a>
+        </div>
+    </div>
+
+    <div class="info-grid mb-3">
+        <div class="info-box">
+            <h3>Datos del recibo</h3>
+            <p><strong>Número de recibo:</strong> {{ recibo["numero_recibo"] }}</p>
+            <p><strong>Fecha:</strong> {{ recibo["fecha"] }}</p>
+            <p><strong>Proforma:</strong> {{ recibo["numero_proforma"] }}</p>
+            <p><strong>Monto recibido:</strong> {{ recibo["monto_recibido"] }}</p>
+            <p><strong>Concepto:</strong> {{ recibo["concepto"] }}</p>
+        </div>
+
+        <div class="info-box">
+            <h3>Cliente</h3>
+            {% if recibo["tipo_proforma"] == "FORMAL" %}
+                <p><strong>Nombre:</strong> {{ recibo["nombre_completo"] }}</p>
+                <p><strong>Teléfono:</strong> {{ recibo["telefono"] }}</p>
+            {% else %}
+                <p><strong>Nombre:</strong> {{ recibo["nombre_cliente_manual"] }}</p>
+                <p><strong>Teléfono:</strong> {{ recibo["telefono_manual"] }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="info-grid mb-3">
+        <div class="info-box">
+            <h3>Vehículo</h3>
+            {% if recibo["tipo_proforma"] == "FORMAL" %}
+                <p><strong>Marca:</strong> {{ recibo["marca"] }}</p>
+                <p><strong>Modelo:</strong> {{ recibo["modelo"] }}</p>
+                <p><strong>Tipo:</strong> {{ recibo["tipo"] }}</p>
+                <p><strong>Placa:</strong> {{ recibo["placa"] }}</p>
+                <p><strong>VIN:</strong> {{ recibo["vin"] }}</p>
+            {% else %}
+                <p><strong>Marca:</strong> {{ recibo["marca_manual"] }}</p>
+                <p><strong>Modelo:</strong> {{ recibo["modelo_manual"] }}</p>
+                <p><strong>Tipo:</strong> {{ recibo["tipo_manual"] }}</p>
+                <p><strong>Placa:</strong> {{ recibo["placa_manual"] }}</p>
+                <p><strong>VIN:</strong> {{ recibo["vin_manual"] }}</p>
+            {% endif %}
+        </div>
+
+        <div class="info-box">
+            <h3>Recepción</h3>
+            <p><strong>Nombre de quien recibe:</strong> {{ recibo["nombre_recibe"] }}</p>
+            <p><strong>CI de quien recibe:</strong> {{ recibo["ci_recibe"] }}</p>
+            <p><strong>Recibí conforme:</strong> {{ recibo["recibi_conforme"] }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Repuestos</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Descripción</th>
+                    <th>Cantidad</th>
+                    <th>Precio unitario</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if repuestos %}
+                    {% for item in repuestos %}
+                    <tr>
+                        <td>{{ item["descripcion"] }}</td>
+                        <td>{{ item["cantidad"] }}</td>
+                        <td>{{ item["precio_unitario"] }}</td>
+                        <td>{{ item["subtotal"] }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="center">No hay repuestos registrados.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Mano de obra</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Descripción</th>
+                    <th>Cantidad</th>
+                    <th>Precio unitario</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if mano_obra %}
+                    {% for item in mano_obra %}
+                    <tr>
+                        <td>{{ item["descripcion"] }}</td>
+                        <td>{{ item["cantidad"] }}</td>
+                        <td>{{ item["precio_unitario"] }}</td>
+                        <td>{{ item["subtotal"] }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="center">No hay mano de obra registrada.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Resumen</h2>
+    <div class="info-grid">
+        <div class="info-box">
+            <p><strong>Total de la proforma:</strong> {{ recibo["total_general"] }}</p>
+            <p><strong>Total literal:</strong> {{ recibo["total_literal"] }}</p>
+            <p><strong>Monto recibido:</strong> {{ recibo["monto_recibido"] }}</p>
+        </div>
+        <div class="info-box">
+            <p><strong>Observaciones del recibo:</strong> {{ recibo["observaciones"] }}</p>
+            <p><strong>Observaciones de la proforma:</strong> {{ recibo["observaciones_proforma"] }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -14,12 +14,17 @@
     <form method="POST">
         <div class="form-grid">
             <div class="form-group full">
+                <label>Buscar cliente</label>
+                <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono">
+            </div>
+
+            <div class="form-group full">
                 <label>Cliente propietario</label>
-                <select name="id_cliente" required>
+                <select name="id_cliente" id="id_cliente" required>
                     <option value="">Seleccione un cliente</option>
                     {% for cliente in clientes %}
                         <option value="{{ cliente['id_cliente'] }}">
-                            {{ cliente['nombre_completo'] }}
+                            {{ cliente['nombre_completo'] }} - {{ cliente['telefono'] }}
                         </option>
                     {% endfor %}
                 </select>
@@ -67,4 +72,8 @@
         </div>
     </form>
 </div>
+
+<script>
+    activarBusquedaEnSelect("buscar_cliente", "id_cliente");
+</script>
 {% endblock %}

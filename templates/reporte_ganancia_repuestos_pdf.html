@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ganancia de Repuestos</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 28px 40px 28px 40px;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            color: #000;
+            margin: 0;
+            padding: 0;
+            line-height: 1.2;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .top-table td {
+            vertical-align: top;
+        }
+
+        .logo {
+            width: 160px;
+            height: auto;
+        }
+
+        .fecha-generacion {
+            text-align: right;
+            font-size: 10px;
+            color: #333;
+        }
+
+        .titulo {
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: 8px;
+            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+        }
+
+        .subtitulo {
+            text-align: center;
+            font-size: 11px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .aviso {
+            text-align: center;
+            font-size: 9px;
+            color: #555;
+            margin-bottom: 16px;
+        }
+
+        .resumen-table {
+            margin-bottom: 16px;
+        }
+
+        .resumen-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+            width: 33.33%;
+        }
+
+        .resumen-table .etiqueta {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #333;
+        }
+
+        .resumen-table .valor {
+            font-size: 15px;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+
+        .detalle-table th,
+        .detalle-table td {
+            border: 1px solid #000;
+            padding: 3px 5px;
+            font-size: 10px;
+        }
+
+        .detalle-table th {
+            text-align: left;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+
+        .der {
+            text-align: right;
+        }
+
+        .centro {
+            text-align: center;
+        }
+
+        .total-row td {
+            font-weight: bold;
+            background-color: #f7f7f7;
+        }
+    </style>
+</head>
+<body>
+
+    <table class="top-table">
+        <tr>
+            <td style="width: 50%;">
+                <img src="/static/logo_taller.png" class="logo">
+            </td>
+            <td style="width: 50%;" class="fecha-generacion">
+                Generado el {{ fecha_generacion|fecha_es }}
+            </td>
+        </tr>
+    </table>
+
+    <div class="titulo">GANANCIA DE REPUESTOS</div>
+    <div class="subtitulo">Período: {{ fecha_desde|fecha_es }} al {{ fecha_hasta|fecha_es }}</div>
+    <div class="aviso">Usa el precio de compra actual registrado en cada ítem del inventario, no necesariamente el histórico exacto de cada venta.</div>
+
+    <table class="resumen-table">
+        <tr>
+            <td>
+                <div class="etiqueta">Total vendido</div>
+                <div class="valor">{{ total_venta|moneda }}</div>
+            </td>
+            <td>
+                <div class="etiqueta">Total costo</div>
+                <div class="valor">{{ total_costo|moneda }}</div>
+            </td>
+            <td>
+                <div class="etiqueta">Ganancia total</div>
+                <div class="valor">{{ total_ganancia|moneda }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="detalle-table">
+        <tr>
+            <th>Fecha</th>
+            <th>Proforma</th>
+            <th>Repuesto</th>
+            <th class="der">Cantidad</th>
+            <th class="der">Precio compra</th>
+            <th class="der">Precio venta</th>
+            <th class="der">Ganancia</th>
+        </tr>
+        {% for item in items %}
+        <tr>
+            <td>{{ item["fecha"]|fecha_es }}</td>
+            <td>{{ item["numero_proforma"] }}</td>
+            <td>{{ item["descripcion"] }}</td>
+            <td class="der">{{ item["cantidad"] }}</td>
+            <td class="der">{{ item["precio_compra"]|moneda }}</td>
+            <td class="der">{{ item["precio_venta"]|moneda }}</td>
+            <td class="der">{{ item["ganancia"]|moneda }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7" class="centro">No se vendieron repuestos del inventario en este período.</td>
+        </tr>
+        {% endfor %}
+        <tr class="total-row">
+            <td colspan="6">Total</td>
+            <td class="der">{{ total_ganancia|moneda }}</td>
+        </tr>
+    </table>
+
+</body>
+</html>

@@ -14,12 +14,8 @@
     <form method="POST">
         <div class="form-grid">
             <div class="form-group full">
-                <label>Buscar cliente</label>
-                <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono">
-            </div>
-
-            <div class="form-group full">
                 <label>Cliente propietario</label>
+                <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono para buscar y seleccionar">
                 <select name="id_cliente" id="id_cliente" required>
                     {% for cliente in clientes %}
                         <option value="{{ cliente['id_cliente'] }}" {% if cliente['id_cliente'] == vehiculo['id_cliente'] %}selected{% endif %}>

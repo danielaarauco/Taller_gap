@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_iconos.html" import icono_filtro, icono_buscar %}
 
 {% block title %}Ingresos{% endblock %}
 
@@ -12,33 +13,13 @@
         <a class="btn btn-primary" href="/ingresos/nuevo">Registrar ingreso</a>
     </div>
 
-    <form method="GET" action="/ingresos" class="mb-3">
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Placa</label>
-                <input type="text" name="placa" value="{{ placa or '' }}" placeholder="Ej: 5015KRC">
-            </div>
+    <form method="GET" action="/ingresos">
+        <div class="toolbar-filtros">
+            <span class="icono-filtro">{{ icono_filtro() }}</span>
 
-            <div class="form-group">
-                <label>Cliente</label>
-                <select name="id_cliente">
-                    <option value="">Todos</option>
-                    {% for cliente in clientes %}
-                        <option value="{{ cliente['id_cliente'] }}" {% if id_cliente == cliente['id_cliente']|string %}selected{% endif %}>
-                            {{ cliente['nombre_completo'] }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Mecánico encargado</label>
-                <input type="text" name="mecanico" value="{{ mecanico or '' }}" placeholder="Ej: JUAN PEREZ">
-            </div>
-
-            <div class="form-group">
+            <div class="campo-inline">
                 <label>Estado</label>
-                <select name="estado">
+                <select name="estado" onchange="this.form.submit()">
                     <option value="">Todos</option>
                     <option value="Ingresado" {% if estado == "Ingresado" %}selected{% endif %}>Ingresado</option>
                     <option value="En revisión" {% if estado == "En revisión" %}selected{% endif %}>En revisión</option>
@@ -48,22 +29,69 @@
                 </select>
             </div>
 
-            <div class="form-group">
-                <label>Fecha desde</label>
-                <input type="date" name="fecha_desde" value="{{ fecha_desde or '' }}">
+            <div class="campo-inline">
+                <label>Cliente</label>
+                <input type="text" id="buscar_cliente" placeholder="Todos (escribe para buscar)">
+                <select name="id_cliente" id="id_cliente" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente['id_cliente'] }}" {% if id_cliente == cliente['id_cliente']|string %}selected{% endif %}>
+                            {{ cliente['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
 
-            <div class="form-group">
-                <label>Fecha hasta</label>
-                <input type="date" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
+            <div class="campo-inline">
+                <label>Mecánico</label>
+                <input type="text" name="mecanico" value="{{ mecanico or '' }}" placeholder="Ej: JUAN PEREZ">
             </div>
-        </div>
 
-        <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
-            <a class="btn btn-secondary" href="/ingresos">Limpiar</a>
+            <div class="campo-inline">
+                <label>Desde</label>
+                <input type="date" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde or '' }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="campo-inline">
+                <label>Hasta</label>
+                <input type="date" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta or '' }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="atajos-fecha">
+                <button type="button" onclick="atajoFecha('hoy')">Hoy</button>
+                <button type="button" onclick="atajoFecha('semana')">Esta semana</button>
+                <button type="button" onclick="atajoFecha('mes')">Este mes</button>
+            </div>
+
+            <div class="campo-busqueda">
+                <input type="text" name="placa" value="{{ placa or '' }}" placeholder="Buscar por placa" autofocus>
+                <button type="submit" class="btn-buscar-icono" aria-label="Buscar">{{ icono_buscar() }}</button>
+            </div>
         </div>
     </form>
+
+    {% set filtros_activos = [] %}
+    {% if placa %}{% set _ = filtros_activos.append(("Placa", placa, "placa")) %}{% endif %}
+    {% if id_cliente %}
+        {% for cliente in clientes %}
+            {% if cliente['id_cliente']|string == id_cliente %}{% set _ = filtros_activos.append(("Cliente", cliente['nombre_completo'], "id_cliente")) %}{% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if mecanico %}{% set _ = filtros_activos.append(("Mecánico", mecanico, "mecanico")) %}{% endif %}
+    {% if estado %}{% set _ = filtros_activos.append(("Estado", estado, "estado")) %}{% endif %}
+    {% if fecha_desde %}{% set _ = filtros_activos.append(("Desde", fecha_desde, "fecha_desde")) %}{% endif %}
+    {% if fecha_hasta %}{% set _ = filtros_activos.append(("Hasta", fecha_hasta, "fecha_hasta")) %}{% endif %}
+
+    {% if filtros_activos %}
+    <div class="chips-filtros">
+        {% for etiqueta, valor, clave in filtros_activos %}
+            <span class="chip-filtro">{{ etiqueta }}: {{ valor }} <a href="{{ url_sin_filtro(clave) }}" aria-label="Quitar filtro">×</a></span>
+        {% endfor %}
+        <a class="chip-limpiar-todo" href="{{ url_sin_filtros() }}">Limpiar todo</a>
+    </div>
+    {% endif %}
+
+    <p class="contador-resultados">{{ ingresos|length }} ingreso{{ '' if ingresos|length == 1 else 's' }} encontrado{{ '' if ingresos|length == 1 else 's' }}</p>
 
     <div class="table-responsive">
         <table>
@@ -84,7 +112,7 @@
                 {% for ingreso in ingresos %}
                 <tr>
                     <td>{{ ingreso["id_ingreso"] }}</td>
-                    <td>{{ ingreso["fecha_ingreso"] }}</td>
+                    <td>{{ ingreso["fecha_ingreso"]|fecha_es }}</td>
                     <td>{{ ingreso["nombre_completo"] }}</td>
                     <td>{{ ingreso["placa"] }}</td>
                     <td>{{ ingreso["marca"] }} {{ ingreso["modelo"] }}</td>
@@ -96,7 +124,7 @@
                             <a class="btn btn-warning" href="/ingresos/{{ ingreso['id_ingreso'] }}/editar">Editar</a>
                             {% if session.get("rol") == "ADMIN" %}
                             <form class="inline-form" action="/ingresos/{{ ingreso['id_ingreso'] }}/eliminar" method="POST">
-                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este ingreso?')">Eliminar</button>
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este ingreso?')">Eliminar</button>
                             </form>
                             {% endif %}
                         </div>
@@ -113,4 +141,8 @@
         </table>
     </div>
 </div>
+
+<script>
+    activarBusquedaEnSelect("buscar_cliente", "id_cliente");
+</script>
 {% endblock %}

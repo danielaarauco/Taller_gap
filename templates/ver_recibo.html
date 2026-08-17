@@ -3,6 +3,10 @@
 {% block title %}Ver Recibo{% endblock %}
 
 {% block content %}
+{% set nombre_cliente = recibo["nombre_completo"] if recibo["tipo_proforma"] == "FORMAL" else recibo["nombre_cliente_manual"] %}
+{% set telefono_cliente = recibo["telefono"] if recibo["tipo_proforma"] == "FORMAL" else recibo["telefono_manual"] %}
+{% set mensaje_whatsapp = "Hola " ~ (nombre_cliente or "") ~ ", te confirmamos el recibo " ~ recibo["numero_recibo"] ~ " por " ~ (recibo["monto_recibido"]|moneda) ~ ", correspondiente a la proforma " ~ recibo["numero_proforma"] ~ ". ¡Gracias por confiar en nosotros!" %}
+{% set link_wpp = link_whatsapp(telefono_cliente, mensaje_whatsapp) %}
 <div class="card">
     <div class="page-header">
         <div>
@@ -12,9 +16,12 @@
         <div class="actions">
             <a class="btn btn-warning" href="/recibos/{{ recibo['id_recibo'] }}/editar">Editar</a>
             <a class="btn btn-secondary" href="/recibos/{{ recibo['id_recibo'] }}/pdf" target="_blank">Exportar PDF</a>
+            {% if link_wpp %}
+            <a class="btn btn-whatsapp" href="{{ link_wpp }}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+            {% endif %}
             {% if session.get("rol") == "ADMIN" %}
             <form class="inline-form" action="/recibos/{{ recibo['id_recibo'] }}/eliminar" method="POST">
-                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este recibo?')">
+                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este recibo?')">
                     Eliminar
                 </button>
             </form>
@@ -27,9 +34,9 @@
         <div class="info-box">
             <h3>Datos del recibo</h3>
             <p><strong>Número de recibo:</strong> {{ recibo["numero_recibo"] }}</p>
-            <p><strong>Fecha:</strong> {{ recibo["fecha"] }}</p>
+            <p><strong>Fecha:</strong> {{ recibo["fecha"]|fecha_es }}</p>
             <p><strong>Proforma:</strong> {{ recibo["numero_proforma"] }}</p>
-            <p><strong>Monto recibido:</strong> {{ recibo["monto_recibido"] }}</p>
+            <p><strong>Monto recibido:</strong> {{ recibo["monto_recibido"]|moneda }}</p>
             <p><strong>Concepto:</strong> {{ recibo["concepto"] }}</p>
         </div>
 
@@ -90,8 +97,8 @@
                     <tr>
                         <td>{{ item["descripcion"] }}</td>
                         <td>{{ item["cantidad"] }}</td>
-                        <td>{{ item["precio_unitario"] }}</td>
-                        <td>{{ item["subtotal"] }}</td>
+                        <td>{{ item["precio_unitario"]|moneda }}</td>
+                        <td>{{ item["subtotal"]|moneda }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -122,8 +129,8 @@
                     <tr>
                         <td>{{ item["descripcion"] }}</td>
                         <td>{{ item["cantidad"] }}</td>
-                        <td>{{ item["precio_unitario"] }}</td>
-                        <td>{{ item["subtotal"] }}</td>
+                        <td>{{ item["precio_unitario"]|moneda }}</td>
+                        <td>{{ item["subtotal"]|moneda }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -140,9 +147,9 @@
     <h2>Resumen</h2>
     <div class="info-grid">
         <div class="info-box">
-            <p><strong>Total de la proforma:</strong> {{ recibo["total_general"] }}</p>
+            <p><strong>Total de la proforma:</strong> {{ recibo["total_general"]|moneda }}</p>
             <p><strong>Total literal:</strong> {{ recibo["total_literal"] }}</p>
-            <p><strong>Monto recibido:</strong> {{ recibo["monto_recibido"] }}</p>
+            <p><strong>Monto recibido:</strong> {{ recibo["monto_recibido"]|moneda }}</p>
         </div>
         <div class="info-box">
             <p><strong>Observaciones del recibo:</strong> {{ recibo["observaciones"] }}</p>

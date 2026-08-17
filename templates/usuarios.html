@@ -42,7 +42,7 @@
                         <div class="actions">
                             <a class="btn btn-warning" href="/usuarios/{{ usuario['id_usuario'] }}/editar">Editar</a>
                             <form class="inline-form" action="/usuarios/{{ usuario['id_usuario'] }}/resetear-password" method="POST">
-                                <button class="btn btn-secondary" type="submit" onclick="return confirm('¿Restablecer contraseña a 123456?')">
+                                <button class="btn btn-secondary" type="submit" onclick="return confirmarAccion(this, '¿Restablecer contraseña a 123456?')">
                                     Resetear contraseña
                                 </button>
                             </form>

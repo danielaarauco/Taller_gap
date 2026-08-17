@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_iconos.html" import icono_filtro, icono_buscar %}
 
 {% block title %}Clientes{% endblock %}
 
@@ -12,19 +13,30 @@
         <a class="btn btn-primary" href="/clientes/nuevo">Registrar cliente</a>
     </div>
 
-    <form method="GET" action="/clientes" class="mb-3">
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Buscar por nombre o CI / NIT</label>
-                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Ej: Daniela o 1234567">
+    <form method="GET" action="/clientes">
+        <div class="toolbar-filtros">
+            <span class="icono-filtro">{{ icono_filtro() }}</span>
+
+            <div class="campo-busqueda">
+                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Buscar por nombre o CI / NIT" autofocus>
+                <button type="submit" class="btn-buscar-icono" aria-label="Buscar">{{ icono_buscar() }}</button>
             </div>
         </div>
-
-        <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Buscar</button>
-            <a class="btn btn-secondary" href="/clientes">Limpiar</a>
-        </div>
     </form>
+
+    {% set filtros_activos = [] %}
+    {% if busqueda %}{% set _ = filtros_activos.append(("Buscar", busqueda, "busqueda")) %}{% endif %}
+
+    {% if filtros_activos %}
+    <div class="chips-filtros">
+        {% for etiqueta, valor, clave in filtros_activos %}
+            <span class="chip-filtro">{{ etiqueta }}: {{ valor }} <a href="{{ url_sin_filtro(clave) }}" aria-label="Quitar filtro">×</a></span>
+        {% endfor %}
+        <a class="chip-limpiar-todo" href="{{ url_sin_filtros() }}">Limpiar todo</a>
+    </div>
+    {% endif %}
+
+    <p class="contador-resultados">{{ clientes|length }} cliente{{ '' if clientes|length == 1 else 's' }} encontrado{{ '' if clientes|length == 1 else 's' }}</p>
 
     <div class="table-responsive">
         <table>
@@ -51,7 +63,7 @@
                             <a class="btn btn-warning" href="/clientes/{{ cliente['id_cliente'] }}/editar">Editar</a>
                             {% if session.get("rol") == "ADMIN" %}
                             <form class="inline-form" action="/clientes/{{ cliente['id_cliente'] }}/eliminar" method="POST">
-                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este cliente?')">Eliminar</button>
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Eliminar este cliente? Se moverá a la papelera y vas a poder restaurarlo si fue un error.')">Eliminar</button>
                             </form>
                             {% endif %}
                         </div>

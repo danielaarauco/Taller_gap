@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_iconos.html" import icono_filtro, icono_buscar %}
 
 {% block title %}Inventario{% endblock %}
 
@@ -12,29 +13,62 @@
         <a class="btn btn-primary" href="/inventario/nuevo">Registrar nuevo Item</a>
     </div>
 
-    <form method="GET" action="/inventario" class="mb-3">
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Buscar por descripción</label>
-                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Ej: Pastillas de frenos">
+    <form method="GET" action="/inventario">
+        <div class="toolbar-filtros">
+            <span class="icono-filtro">{{ icono_filtro() }}</span>
+
+            <div class="campo-inline">
+                <label>Estado</label>
+                <select name="estado" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="Nuevo" {% if estado == "Nuevo" %}selected{% endif %}>Nuevo</option>
+                    <option value="Usado" {% if estado == "Usado" %}selected{% endif %}>Usado</option>
+                </select>
             </div>
 
-            <div class="form-group">
-                <label>Filtrar por categoría</label>
+            <div class="campo-inline">
+                <label>Disponibilidad</label>
+                <select name="disponibilidad" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="disponible" {% if disponibilidad == "disponible" %}selected{% endif %}>Disponible</option>
+                    <option value="agotado" {% if disponibilidad == "agotado" %}selected{% endif %}>Agotado</option>
+                </select>
+            </div>
+
+            <div class="campo-inline">
+                <label>Categoría</label>
                 <input type="text" name="categoria" value="{{ categoria or '' }}" placeholder="Ej: Frenos">
             </div>
 
-            <div class="form-group">
-                <label>Filtrar por marca</label>
+            <div class="campo-inline">
+                <label>Marca</label>
                 <input type="text" name="marca" value="{{ marca or '' }}" placeholder="Ej: BOSCH">
             </div>
-        </div>
 
-        <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
-            <a class="btn btn-secondary" href="/inventario">Limpiar</a>
+            <div class="campo-busqueda">
+                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Buscar por descripción" autofocus>
+                <button type="submit" class="btn-buscar-icono" aria-label="Buscar">{{ icono_buscar() }}</button>
+            </div>
         </div>
     </form>
+
+    {% set filtros_activos = [] %}
+    {% if busqueda %}{% set _ = filtros_activos.append(("Buscar", busqueda, "busqueda")) %}{% endif %}
+    {% if estado %}{% set _ = filtros_activos.append(("Estado", estado, "estado")) %}{% endif %}
+    {% if disponibilidad %}{% set _ = filtros_activos.append(("Disponibilidad", "Disponible" if disponibilidad == "disponible" else "Agotado", "disponibilidad")) %}{% endif %}
+    {% if categoria %}{% set _ = filtros_activos.append(("Categoría", categoria, "categoria")) %}{% endif %}
+    {% if marca %}{% set _ = filtros_activos.append(("Marca", marca, "marca")) %}{% endif %}
+
+    {% if filtros_activos %}
+    <div class="chips-filtros">
+        {% for etiqueta, valor, clave in filtros_activos %}
+            <span class="chip-filtro">{{ etiqueta }}: {{ valor }} <a href="{{ url_sin_filtro(clave) }}" aria-label="Quitar filtro">×</a></span>
+        {% endfor %}
+        <a class="chip-limpiar-todo" href="{{ url_sin_filtros() }}">Limpiar todo</a>
+    </div>
+    {% endif %}
+
+    <p class="contador-resultados">{{ items|length }} ítem{{ '' if items|length == 1 else 's' }} encontrado{{ '' if items|length == 1 else 's' }}</p>
 
     <div class="table-responsive">
         <table>
@@ -69,8 +103,8 @@
                     <td>{{ item["estado"] }}</td>
                     <td>{{ item["categoria"] }}</td>
                     <td>{{ item["marca"] }}</td>
-                    <td>{{ "%.2f"|format(item["precio_compra"] or 0) }}</td>
-                    <td>{{ "%.2f"|format(item["precio_venta"] or 0) }}</td>
+                    <td>{{ item["precio_compra"]|moneda }}</td>
+                    <td>{{ item["precio_venta"]|moneda }}</td>
                     <td>
                         <div class="actions">
                             <a class="btn btn-secondary" href="/inventario/{{ item['id_item'] }}/movimientos">Ver</a>
@@ -82,7 +116,7 @@
                             <a class="btn btn-warning" href="/inventario/{{ item['id_item'] }}/editar">Editar</a>
                             {% if session.get("rol") == "ADMIN" %}
                             <form class="inline-form" action="/inventario/{{ item['id_item'] }}/eliminar" method="POST">
-                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este item?')">Eliminar</button>
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este item?')">Eliminar</button>
                             </form>
                             {% endif %}
                         </div>

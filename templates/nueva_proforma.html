@@ -3,125 +3,218 @@
 {% block title %}Nueva Proforma{% endblock %}
 
 {% block content %}
+<form method="POST" id="form_nueva_proforma">
 <div class="card">
     <div class="page-header">
         <div>
             <h1>Registrar Proforma</h1>
-            <p>Crea una proforma formal o una proforma rápida.</p>
+            <p>Crea una proforma formal o una proforma rápida, con todos sus repuestos y mano de obra, en una sola pantalla.</p>
         </div>
     </div>
 
-    <form method="POST">
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Número de proforma</label>
-                <input type="text" value="{{ nuevo_numero }}" readonly>
-            </div>
+    <div class="form-grid">
+        <div class="form-group">
+            <label>Número de proforma</label>
+            <input type="text" value="{{ nuevo_numero }}" readonly>
+        </div>
 
-            <div class="form-group">
-                <label>Fecha</label>
-                <input type="date" name="fecha" required>
+        <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" name="fecha" required>
+        </div>
+
+        <div class="form-group full">
+            <label>Tipo de proforma</label>
+            <select name="tipo_proforma" id="tipo_proforma" required>
+                <option value="FORMAL">FORMAL</option>
+                <option value="RAPIDA">RÁPIDA</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="bloque_formal">
+        <div class="form-grid">
+            <div class="form-group full">
+                <label>Cliente</label>
+                <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono para buscar y seleccionar">
+                <select name="id_cliente" id="id_cliente">
+                    <option value="">Seleccione un cliente</option>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente['id_cliente'] }}">
+                            {{ cliente['nombre_completo'] }} - {{ cliente['telefono'] }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div class="form-group full">
-                <label>Tipo de proforma</label>
-                <select name="tipo_proforma" id="tipo_proforma" required>
-                    <option value="FORMAL">FORMAL</option>
-                    <option value="RAPIDA">RÁPIDA</option>
+                <label>Vehículo</label>
+                <input type="text" id="buscar_vehiculo" placeholder="Escribe placa, marca, modelo o propietario para buscar y seleccionar">
+                <select name="id_vehiculo" id="id_vehiculo">
+                    <option value="">Seleccione un vehículo</option>
+                    {% for vehiculo in vehiculos %}
+                        <option value="{{ vehiculo['id_vehiculo'] }}" data-cliente="{{ vehiculo['id_cliente'] }}">
+                            {{ vehiculo['placa'] }} - {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} - {{ vehiculo['nombre_completo'] }}
+                        </option>
+                    {% endfor %}
                 </select>
             </div>
         </div>
+    </div>
 
-        <div id="bloque_formal">
-            <div class="form-grid">
-                <div class="form-group full">
-                    <label>Buscar cliente</label>
-                    <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono">
-                </div>
+    <div id="bloque_rapida" style="display:none;">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Nombre del cliente</label>
+                <input type="text" name="nombre_cliente_manual">
+            </div>
 
-                <div class="form-group">
-                    <label>Cliente</label>
-                    <select name="id_cliente" id="id_cliente">
-                        <option value="">Seleccione un cliente</option>
-                        {% for cliente in clientes %}
-                            <option value="{{ cliente['id_cliente'] }}">
-                                {{ cliente['nombre_completo'] }} - {{ cliente['telefono'] }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div class="form-group">
+                <label>Teléfono</label>
+                <input type="text" name="telefono_manual">
+            </div>
 
-                <div class="form-group full">
-                    <label>Buscar vehículo</label>
-                    <input type="text" id="buscar_vehiculo" placeholder="Escribe placa, marca, modelo o propietario">
-                </div>
+            <div class="form-group">
+                <label>Marca</label>
+                <input type="text" name="marca_manual">
+            </div>
 
-                <div class="form-group">
-                    <label>Vehículo</label>
-                    <select name="id_vehiculo" id="id_vehiculo">
-                        <option value="">Seleccione un vehículo</option>
-                        {% for vehiculo in vehiculos %}
-                            <option value="{{ vehiculo['id_vehiculo'] }}" data-cliente="{{ vehiculo['id_cliente'] }}">
-                                {{ vehiculo['placa'] }} - {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} - {{ vehiculo['nombre_completo'] }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div class="form-group">
+                <label>Modelo</label>
+                <input type="text" name="modelo_manual">
+            </div>
+
+            <div class="form-group">
+                <label>Tipo</label>
+                <input type="text" name="tipo_manual">
+            </div>
+
+            <div class="form-group">
+                <label>Placa</label>
+                <input type="text" name="placa_manual">
+            </div>
+
+            <div class="form-group full">
+                <label>VIN</label>
+                <input type="text" name="vin_manual">
             </div>
         </div>
+    </div>
 
-        <div id="bloque_rapida" style="display:none;">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Nombre del cliente</label>
-                    <input type="text" name="nombre_cliente_manual">
-                </div>
-
-                <div class="form-group">
-                    <label>Teléfono</label>
-                    <input type="text" name="telefono_manual">
-                </div>
-
-                <div class="form-group">
-                    <label>Marca</label>
-                    <input type="text" name="marca_manual">
-                </div>
-
-                <div class="form-group">
-                    <label>Modelo</label>
-                    <input type="text" name="modelo_manual">
-                </div>
-
-                <div class="form-group">
-                    <label>Tipo</label>
-                    <input type="text" name="tipo_manual">
-                </div>
-
-                <div class="form-group">
-                    <label>Placa</label>
-                    <input type="text" name="placa_manual">
-                </div>
-
-                <div class="form-group full">
-                    <label>VIN</label>
-                    <input type="text" name="vin_manual">
-                </div>
-            </div>
+    <div class="form-grid">
+        <div class="form-group full">
+            <label>Observaciones</label>
+            <textarea name="observaciones"></textarea>
         </div>
+    </div>
+</div>
 
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h2>Repuestos y mano de obra</h2>
+            <p>Agregá cada ítem a la lista. Se guardan todos juntos cuando guardes la proforma (después también vas a poder agregar más).</p>
+        </div>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-group full">
+            <label>Tipo de ítem</label>
+            <select id="modo_item" onchange="cambiarModoItem()">
+                <option value="">Seleccione</option>
+                <option value="inventario">Repuesto del inventario</option>
+                <option value="externo">Repuesto comprado de forma externa</option>
+                <option value="mano_obra">Mano de obra</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="bloque_inventario_item" style="display:none;">
         <div class="form-grid">
             <div class="form-group full">
-                <label>Observaciones</label>
-                <textarea name="observaciones"></textarea>
+                <label>Repuesto</label>
+                <input type="text" id="buscar_item_staging" placeholder="Escribe descripción, categoría o marca para buscar y seleccionar">
+                <select id="id_item_staging" onchange="mostrarStockStaging()">
+                    <option value="">Seleccione un repuesto</option>
+                    {% for item in items_inventario %}
+                        <option value="{{ item['id_item'] }}"
+                                data-descripcion="{{ item['descripcion'] }}{% if item['marca'] %} - {{ item['marca'] }}{% endif %}"
+                                data-precio="{{ item['precio_venta'] or 0 }}"
+                                data-stock="{{ item['cantidad'] }}"
+                                {% if item['cantidad'] == 0 %}disabled{% endif %}>
+                            {{ item['descripcion'] }}{% if item['marca'] %} - {{ item['marca'] }}{% endif %} (Stock: {{ item['cantidad'] }} - Precio venta: {{ item['precio_venta']|moneda }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group full">
+                <p id="stock_disponible_staging" style="color:#6b7280; font-size:13px; margin:0;"></p>
             </div>
         </div>
+    </div>
 
-        <div class="form-actions">
-            <button class="btn btn-success" type="submit">Guardar proforma</button>
-            <a class="btn btn-secondary" href="/proformas">Cancelar</a>
+    <div id="bloque_manual_item" style="display:none;">
+        <div class="form-grid">
+            <div class="form-group full">
+                <label>Descripción</label>
+                <input type="text" id="descripcion_item_staging">
+            </div>
+
+            <div class="form-group">
+                <label>Precio unitario</label>
+                <input type="number" step="0.01" id="precio_item_staging" min="0">
+            </div>
         </div>
-    </form>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-group">
+            <label>Cantidad</label>
+            <input type="number" id="cantidad_item_staging" min="1" value="1">
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="button" class="btn btn-primary" onclick="agregarItemALaLista()">+ Agregar a la lista</button>
+    </div>
+
+    <div class="table-responsive mb-3">
+        <table id="tabla_items_agregados">
+            <thead>
+                <tr>
+                    <th>Origen</th>
+                    <th>Descripción</th>
+                    <th>Cantidad</th>
+                    <th>Precio unitario</th>
+                    <th>Subtotal</th>
+                    <th>Quitar</th>
+                </tr>
+            </thead>
+            <tbody id="cuerpo_items_agregados">
+                <tr><td colspan="6" class="center">Todavía no agregaste ningún ítem.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <p><strong>Subtotal repuestos:</strong> <span id="total_repuestos">Bs 0.00</span></p>
+            <p><strong>Subtotal mano de obra:</strong> <span id="total_mano_obra">Bs 0.00</span></p>
+        </div>
+        <div class="info-box">
+            <p><strong>Total general:</strong> <span id="total_general">Bs 0.00</span></p>
+        </div>
+    </div>
+
+    <div id="campos_ocultos_items"></div>
+
+    <div class="form-actions">
+        <button class="btn btn-success" type="submit">Guardar proforma</button>
+        <a class="btn btn-secondary" href="/proformas">Cancelar</a>
+    </div>
 </div>
+</form>
 
 <script>
     const tipoSelect = document.getElementById("tipo_proforma");
@@ -153,19 +246,181 @@
             }
         });
 
-        const inputBuscarVehiculo = document.getElementById("buscar_vehiculo");
-        if (inputBuscarVehiculo) {
-            inputBuscarVehiculo.value = "";
-        }
+        // Avisa al combo del vehículo que sus opciones cambiaron, para que
+        // actualice el texto que se ve en su barra de búsqueda.
+        vehiculoSelect.dispatchEvent(new Event("change"));
     }
 
     tipoSelect.addEventListener("change", actualizarTipoProforma);
     clienteSelect.addEventListener("change", filtrarVehiculosPorCliente);
 
+    // ===== Armador de ítems (repuestos y mano de obra) =====
+    let itemsAgregados = [];
+
+    function cambiarModoItem() {
+        const modo = document.getElementById("modo_item").value;
+        document.getElementById("bloque_inventario_item").style.display = modo === "inventario" ? "block" : "none";
+        document.getElementById("bloque_manual_item").style.display = (modo === "externo" || modo === "mano_obra") ? "block" : "none";
+    }
+
+    function mostrarStockStaging() {
+        const select = document.getElementById("id_item_staging");
+        const opcion = select.options[select.selectedIndex];
+        const texto = document.getElementById("stock_disponible_staging");
+        const cantidad = document.getElementById("cantidad_item_staging");
+
+        if (opcion && opcion.value) {
+            texto.textContent = "Stock disponible: " + opcion.dataset.stock;
+            cantidad.max = opcion.dataset.stock;
+        } else {
+            texto.textContent = "";
+            cantidad.removeAttribute("max");
+        }
+    }
+
+    function formatearMoneda(numero) {
+        return "Bs " + numero.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function limpiarFormularioItem() {
+        document.getElementById("modo_item").value = "";
+        cambiarModoItem();
+        document.getElementById("id_item_staging").value = "";
+        document.getElementById("buscar_item_staging").value = "";
+        document.getElementById("stock_disponible_staging").textContent = "";
+        document.getElementById("descripcion_item_staging").value = "";
+        document.getElementById("precio_item_staging").value = "";
+        document.getElementById("cantidad_item_staging").value = "1";
+        document.getElementById("cantidad_item_staging").removeAttribute("max");
+    }
+
+    function agregarItemALaLista() {
+        const modo = document.getElementById("modo_item").value;
+        const cantidadTexto = document.getElementById("cantidad_item_staging").value;
+        const cantidad = parseInt(cantidadTexto, 10);
+
+        if (!modo) {
+            alert("Elegí qué tipo de ítem vas a agregar.");
+            return;
+        }
+        if (!cantidadTexto || isNaN(cantidad) || cantidad <= 0) {
+            alert("La cantidad debe ser un número mayor a cero.");
+            return;
+        }
+
+        const item = { modo: modo, cantidad: cantidad };
+
+        if (modo === "inventario") {
+            const select = document.getElementById("id_item_staging");
+            const opcion = select.options[select.selectedIndex];
+
+            if (!opcion || !opcion.value) {
+                alert("Seleccioná un repuesto del inventario.");
+                return;
+            }
+            if (cantidad > parseInt(opcion.dataset.stock, 10)) {
+                alert("No hay stock suficiente. Disponible: " + opcion.dataset.stock);
+                return;
+            }
+
+            item.id_item = opcion.value;
+            item.descripcion = opcion.dataset.descripcion;
+            item.precio_unitario = parseFloat(opcion.dataset.precio);
+            item.origen = "Inventario";
+        } else {
+            const descripcion = document.getElementById("descripcion_item_staging").value.trim();
+            const precioTexto = document.getElementById("precio_item_staging").value;
+            const precio = parseFloat(precioTexto);
+
+            if (!descripcion) {
+                alert("Escribí una descripción.");
+                return;
+            }
+            if (precioTexto === "" || isNaN(precio) || precio < 0) {
+                alert("El precio unitario no es válido.");
+                return;
+            }
+
+            item.id_item = "";
+            item.descripcion = descripcion.toUpperCase();
+            item.precio_unitario = precio;
+            item.origen = modo === "mano_obra" ? "Mano de obra" : "Externo";
+        }
+
+        item.subtotal = item.cantidad * item.precio_unitario;
+        itemsAgregados.push(item);
+
+        renderizarItems();
+        limpiarFormularioItem();
+    }
+
+    function quitarItem(indice) {
+        itemsAgregados.splice(indice, 1);
+        renderizarItems();
+    }
+
+    function renderizarItems() {
+        const cuerpo = document.getElementById("cuerpo_items_agregados");
+        cuerpo.innerHTML = "";
+
+        if (itemsAgregados.length === 0) {
+            cuerpo.innerHTML = '<tr><td colspan="6" class="center">Todavía no agregaste ningún ítem.</td></tr>';
+        } else {
+            itemsAgregados.forEach(function (item, indice) {
+                const fila = document.createElement("tr");
+                fila.innerHTML =
+                    "<td>" + item.origen + "</td>" +
+                    "<td>" + item.descripcion + "</td>" +
+                    "<td>" + item.cantidad + "</td>" +
+                    "<td>" + formatearMoneda(item.precio_unitario) + "</td>" +
+                    "<td>" + formatearMoneda(item.subtotal) + "</td>" +
+                    '<td><button type="button" class="btn btn-danger" onclick="quitarItem(' + indice + ')">Quitar</button></td>';
+                cuerpo.appendChild(fila);
+            });
+        }
+
+        let subtotalRepuestos = 0;
+        let subtotalManoObra = 0;
+
+        itemsAgregados.forEach(function (item) {
+            if (item.modo === "mano_obra") {
+                subtotalManoObra += item.subtotal;
+            } else {
+                subtotalRepuestos += item.subtotal;
+            }
+        });
+
+        document.getElementById("total_repuestos").textContent = formatearMoneda(subtotalRepuestos);
+        document.getElementById("total_mano_obra").textContent = formatearMoneda(subtotalManoObra);
+        document.getElementById("total_general").textContent = formatearMoneda(subtotalRepuestos + subtotalManoObra);
+    }
+
+    document.getElementById("form_nueva_proforma").addEventListener("submit", function () {
+        const contenedor = document.getElementById("campos_ocultos_items");
+        contenedor.innerHTML = "";
+
+        itemsAgregados.forEach(function (item) {
+            [
+                ["item_modo", item.modo],
+                ["item_id_item", item.id_item || ""],
+                ["item_descripcion", item.descripcion],
+                ["item_cantidad", item.cantidad],
+                ["item_precio_unitario", item.precio_unitario]
+            ].forEach(function (par) {
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = par[0];
+                input.value = par[1];
+                contenedor.appendChild(input);
+            });
+        });
+    });
+
     window.onload = function () {
         actualizarTipoProforma();
         activarBusquedaEnSelect("buscar_cliente", "id_cliente");
         activarBusquedaEnSelect("buscar_vehiculo", "id_vehiculo");
+        activarBusquedaEnSelect("buscar_item_staging", "id_item_staging");
     };
 </script>
 {% endblock %}

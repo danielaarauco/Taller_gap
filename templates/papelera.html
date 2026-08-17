@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Papelera{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Papelera</h1>
+            <p>Clientes, vehículos y proformas eliminados. Se pueden restaurar, o eliminar definitivamente (sin vuelta atrás).</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Clientes ({{ clientes|length }})</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre completo</th>
+                    <th>Teléfono</th>
+                    <th>CI / NIT</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td>{{ cliente["id_cliente"] }}</td>
+                    <td>{{ cliente["nombre_completo"] }}</td>
+                    <td>{{ cliente["telefono"] }}</td>
+                    <td>{{ cliente["ci_nit"] }}</td>
+                    <td>
+                        <div class="actions">
+                            <form class="inline-form" action="/clientes/{{ cliente['id_cliente'] }}/restaurar" method="POST">
+                                <button class="btn btn-success" type="submit">Restaurar</button>
+                            </form>
+                            <form class="inline-form" action="/clientes/{{ cliente['id_cliente'] }}/eliminar-definitivo" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, 'Esta acción borra al cliente para siempre y no se puede deshacer. ¿Continuar?')">Eliminar definitivamente</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not clientes %}
+                <tr>
+                    <td colspan="5" class="center">No hay clientes en la papelera.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Vehículos ({{ vehiculos|length }})</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Propietario</th>
+                    <th>Placa</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vehiculo in vehiculos %}
+                <tr>
+                    <td>{{ vehiculo["id_vehiculo"] }}</td>
+                    <td>{{ vehiculo["nombre_completo"] }}</td>
+                    <td>{{ vehiculo["placa"] }}</td>
+                    <td>{{ vehiculo["marca"] }}</td>
+                    <td>{{ vehiculo["modelo"] }}</td>
+                    <td>
+                        <div class="actions">
+                            <form class="inline-form" action="/vehiculos/{{ vehiculo['id_vehiculo'] }}/restaurar" method="POST">
+                                <button class="btn btn-success" type="submit">Restaurar</button>
+                            </form>
+                            <form class="inline-form" action="/vehiculos/{{ vehiculo['id_vehiculo'] }}/eliminar-definitivo" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, 'Esta acción borra el vehículo para siempre y no se puede deshacer. ¿Continuar?')">Eliminar definitivamente</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not vehiculos %}
+                <tr>
+                    <td colspan="6" class="center">No hay vehículos en la papelera.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Proformas ({{ proformas|length }})</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Número</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Vehículo</th>
+                    <th>Total</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proforma in proformas %}
+                <tr>
+                    <td>{{ proforma["id_proforma"] }}</td>
+                    <td>{{ proforma["numero_proforma"] }}</td>
+                    <td>{{ proforma["fecha"]|fecha_es }}</td>
+                    <td>
+                        {% if proforma["tipo_proforma"] == "FORMAL" %}
+                            {{ proforma["nombre_completo"] }}
+                        {% else %}
+                            {{ proforma["nombre_cliente_manual"] }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if proforma["tipo_proforma"] == "FORMAL" %}
+                            {{ proforma["placa"] }}
+                        {% else %}
+                            {{ proforma["placa_manual"] }}
+                        {% endif %}
+                    </td>
+                    <td>{{ proforma["total_general"]|moneda }}</td>
+                    <td>
+                        <div class="actions">
+                            <form class="inline-form" action="/proformas/{{ proforma['id_proforma'] }}/restaurar" method="POST">
+                                <button class="btn btn-success" type="submit">Restaurar</button>
+                            </form>
+                            <form class="inline-form" action="/proformas/{{ proforma['id_proforma'] }}/eliminar-definitivo" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, 'Esta acción borra la proforma (y sus recibos) para siempre y no se puede deshacer. ¿Continuar?')">Eliminar definitivamente</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not proformas %}
+                <tr>
+                    <td colspan="7" class="center">No hay proformas en la papelera.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

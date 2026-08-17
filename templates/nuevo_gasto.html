@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Gasto{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Registrar gasto</h1>
+            <p>Compra de repuestos u otro gasto del taller. Si es compra de repuestos, se suma el stock automáticamente.</p>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" required>
+            </div>
+
+            <div class="form-group">
+                <label>Categoría</label>
+                <select name="categoria" id="categoria" required onchange="cambiarCategoria()">
+                    <option value="">Seleccione</option>
+                    {% for c in categorias %}
+                        <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div id="bloque_compra_repuestos" style="display:none;">
+            <div class="form-grid">
+                <div class="form-group full">
+                    <label>Repuesto</label>
+                    <input type="text" id="buscar_item" placeholder="Escribe descripción, categoría o marca para buscar y seleccionar">
+                    <select name="id_item" id="id_item">
+                        <option value="">Seleccione un repuesto</option>
+                        {% for item in items_inventario %}
+                            <option value="{{ item['id_item'] }}">
+                                {{ item['descripcion'] }}{% if item['marca'] %} - {{ item['marca'] }}{% endif %} (Stock actual: {{ item['cantidad'] }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Cantidad comprada</label>
+                    <input type="number" name="cantidad" id="cantidad_compra" min="1">
+                </div>
+            </div>
+        </div>
+
+        <div id="bloque_descripcion" class="form-grid">
+            <div class="form-group full">
+                <label>Descripción</label>
+                <input type="text" name="descripcion" id="descripcion_gasto" placeholder="Ej: Sueldo mecánico, alquiler de agosto, luz y agua...">
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label id="label_monto">Monto</label>
+                <input type="number" step="0.01" name="monto" min="0.01" required>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar gasto</button>
+            <a class="btn btn-secondary" href="/gastos">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    activarBusquedaEnSelect("buscar_item", "id_item");
+
+    function cambiarCategoria() {
+        const categoria = document.getElementById("categoria").value;
+        const bloqueCompra = document.getElementById("bloque_compra_repuestos");
+        const bloqueDescripcion = document.getElementById("bloque_descripcion");
+        const idItem = document.getElementById("id_item");
+        const cantidad = document.getElementById("cantidad_compra");
+        const labelMonto = document.getElementById("label_monto");
+
+        if (categoria === "Compra de repuestos") {
+            bloqueCompra.style.display = "block";
+            bloqueDescripcion.style.display = "none";
+            idItem.required = true;
+            cantidad.required = true;
+            labelMonto.textContent = "Monto total pagado";
+        } else {
+            bloqueCompra.style.display = "none";
+            bloqueDescripcion.style.display = "grid";
+            idItem.required = false;
+            cantidad.required = false;
+            labelMonto.textContent = "Monto";
+        }
+    }
+
+    cambiarCategoria();
+</script>
+{% endblock %}

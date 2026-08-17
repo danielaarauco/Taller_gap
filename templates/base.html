@@ -5,6 +5,400 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Taller Mecánico{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        // Convierte un <input> de texto + un <select> en una única barra de
+        // búsqueda: se escribe en el input y debajo aparece el listado de
+        // coincidencias para elegir. El <select> original sigue existiendo
+        // (oculto visualmente pero enfocable) y es el que se envía con el
+        // formulario, así que el resto del código (validaciones, "required",
+        // otros scripts que dependen del <select>) sigue funcionando igual.
+        //
+        // Se define acá, en el <head>, para que ya esté lista antes de que
+        // el contenido de cada página la llame.
+        function activarBusquedaEnSelect(inputId, selectId) {
+            const input = document.getElementById(inputId);
+            const select = document.getElementById(selectId);
+
+            if (!input || !select) return;
+
+            select.classList.add("combo-select-oculto");
+            input.classList.add("combo-input");
+            input.setAttribute("autocomplete", "off");
+
+            const grupo = input.closest(".form-group") || input.parentElement;
+            if (grupo) grupo.classList.add("combo-buscable");
+
+            const lista = document.createElement("div");
+            lista.className = "combo-dropdown";
+            input.insertAdjacentElement("afterend", lista);
+
+            let itemsActuales = [];
+            let indiceResaltado = -1;
+
+            function etiquetaDe(opcion) {
+                return opcion.text.replace(/\s+/g, " ").trim();
+            }
+
+            function opcionesValidas() {
+                return Array.from(select.options).filter(opcion => opcion.value !== "");
+            }
+
+            function sincronizarTexto() {
+                const seleccionada = select.options[select.selectedIndex];
+                input.value = (seleccionada && seleccionada.value) ? etiquetaDe(seleccionada) : "";
+            }
+
+            function cerrarLista() {
+                lista.classList.remove("abierto");
+                lista.innerHTML = "";
+                itemsActuales = [];
+                indiceResaltado = -1;
+            }
+
+            function elegirOpcion(opcion) {
+                select.value = opcion.value;
+                cerrarLista();
+                input.value = etiquetaDe(opcion);
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+
+            function resaltar(indice) {
+                itemsActuales.forEach(item => item.classList.remove("resaltado"));
+                if (indice >= 0 && indice < itemsActuales.length) {
+                    itemsActuales[indice].classList.add("resaltado");
+                    itemsActuales[indice].scrollIntoView({ block: "nearest" });
+                }
+                indiceResaltado = indice;
+            }
+
+            function mostrarLista() {
+                const texto = input.value.toLowerCase().trim();
+                const coincidencias = opcionesValidas().filter(opcion =>
+                    etiquetaDe(opcion).toLowerCase().includes(texto)
+                );
+
+                lista.innerHTML = "";
+                itemsActuales = [];
+                indiceResaltado = -1;
+
+                if (coincidencias.length === 0) {
+                    const vacio = document.createElement("div");
+                    vacio.className = "combo-dropdown-vacio";
+                    vacio.textContent = "Sin resultados";
+                    lista.appendChild(vacio);
+                } else {
+                    coincidencias.forEach(opcion => {
+                        const item = document.createElement("div");
+                        item.className = "combo-dropdown-item" + (opcion.disabled ? " deshabilitado" : "");
+                        item.textContent = etiquetaDe(opcion);
+
+                        if (!opcion.disabled) {
+                            item.addEventListener("mousedown", function (evento) {
+                                evento.preventDefault();
+                                elegirOpcion(opcion);
+                            });
+                            itemsActuales.push(item);
+                        }
+
+                        lista.appendChild(item);
+                    });
+                }
+
+                lista.classList.add("abierto");
+            }
+
+            input.addEventListener("focus", function () {
+                if (select.value) input.select();
+                mostrarLista();
+            });
+
+            input.addEventListener("input", function () {
+                if (select.value) {
+                    select.value = "";
+                    select.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+                mostrarLista();
+            });
+
+            input.addEventListener("keydown", function (evento) {
+                if (!lista.classList.contains("abierto")) return;
+
+                if (evento.key === "ArrowDown") {
+                    evento.preventDefault();
+                    resaltar(Math.min(indiceResaltado + 1, itemsActuales.length - 1));
+                } else if (evento.key === "ArrowUp") {
+                    evento.preventDefault();
+                    resaltar(Math.max(indiceResaltado - 1, 0));
+                } else if (evento.key === "Enter") {
+                    if (indiceResaltado >= 0 && itemsActuales[indiceResaltado]) {
+                        evento.preventDefault();
+                        itemsActuales[indiceResaltado].dispatchEvent(new Event("mousedown"));
+                    }
+                } else if (evento.key === "Escape") {
+                    cerrarLista();
+                }
+            });
+
+            input.addEventListener("blur", function () {
+                setTimeout(function () {
+                    cerrarLista();
+                    if (!select.value) {
+                        input.value = "";
+                    } else {
+                        sincronizarTexto();
+                    }
+                }, 100);
+            });
+
+            // Si el <select> cambia por código externo (por ejemplo, al
+            // recalcular los vehículos disponibles según el cliente elegido),
+            // el texto visible se actualiza para reflejarlo.
+            select.addEventListener("change", sincronizarTexto);
+
+            sincronizarTexto();
+        }
+
+        // Completa un rango de fechas (id="fecha_desde" / id="fecha_hasta")
+        // con un atajo y envía el formulario de filtros. tipo: "hoy",
+        // "semana" (desde el lunes) o "mes" (desde el día 1).
+        function atajoFecha(tipo) {
+            function formatear(d) {
+                const anio = d.getFullYear();
+                const mes = String(d.getMonth() + 1).padStart(2, "0");
+                const dia = String(d.getDate()).padStart(2, "0");
+                return `${anio}-${mes}-${dia}`;
+            }
+
+            const hoy = new Date();
+            let desde = new Date(hoy);
+            const hasta = hoy;
+
+            if (tipo === "semana") {
+                const diaSemana = (hoy.getDay() + 6) % 7; // lunes = 0
+                desde.setDate(hoy.getDate() - diaSemana);
+            } else if (tipo === "mes") {
+                desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+            }
+            // "hoy": desde = hasta = hoy
+
+            const campoDesde = document.getElementById("fecha_desde");
+            const campoHasta = document.getElementById("fecha_hasta");
+            if (!campoDesde || !campoHasta) return;
+
+            campoDesde.value = formatear(desde);
+            campoHasta.value = formatear(hasta);
+            campoDesde.form.submit();
+        }
+
+        // Reemplaza el confirm() nativo del navegador por el modal propio
+        // del sistema. Se usa como onclick="return confirmarAccion(this, 'mensaje')"
+        // en un botón type="submit": cancela el envío original y, si el
+        // usuario confirma en el modal, envía el formulario del botón.
+        let formularioPendienteConfirmar = null;
+
+        function confirmarAccion(boton, mensaje) {
+            formularioPendienteConfirmar = boton.form;
+            document.getElementById("modalConfirmarTexto").textContent = mensaje;
+            document.getElementById("modalConfirmar").classList.add("abierto");
+            return false;
+        }
+
+        function cerrarModalConfirmar() {
+            document.getElementById("modalConfirmar").classList.remove("abierto");
+            formularioPendienteConfirmar = null;
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const modal = document.getElementById("modalConfirmar");
+            if (!modal) return;
+
+            document.getElementById("modalConfirmarAceptar").addEventListener("click", function () {
+                const formulario = formularioPendienteConfirmar;
+                cerrarModalConfirmar();
+                if (formulario) formulario.submit();
+            });
+
+            document.getElementById("modalConfirmarCancelar").addEventListener("click", cerrarModalConfirmar);
+
+            modal.addEventListener("click", function (evento) {
+                if (evento.target === modal) cerrarModalConfirmar();
+            });
+
+            document.addEventListener("keydown", function (evento) {
+                if (evento.key === "Escape" && modal.classList.contains("abierto")) {
+                    cerrarModalConfirmar();
+                }
+            });
+        });
+
+        // Menú de acciones "⋮" para no amontonar botones en las filas de tabla.
+        // Se posiciona con position:fixed calculado por JS (no con
+        // position:absolute dentro de la fila) porque la tabla vive dentro
+        // de un contenedor con scroll horizontal (.table-responsive), y ese
+        // scroll recorta cualquier elemento posicionado con "absolute" que
+        // se salga por abajo, aunque tenga z-index alto.
+        function cerrarMenusAcciones() {
+            document.querySelectorAll(".menu-acciones-lista.abierto").forEach(function (m) {
+                m.classList.remove("abierto");
+            });
+        }
+
+        function toggleMenuAcciones(boton) {
+            const menu = boton.nextElementSibling;
+            const yaAbierto = menu.classList.contains("abierto");
+
+            cerrarMenusAcciones();
+
+            if (!yaAbierto) {
+                const rect = boton.getBoundingClientRect();
+                const alturaEstimada = menu.querySelectorAll("a, button").length * 36 + 10;
+                const espacioAbajo = window.innerHeight - rect.bottom;
+
+                menu.style.right = (window.innerWidth - rect.right) + "px";
+
+                if (espacioAbajo < alturaEstimada && rect.top > alturaEstimada) {
+                    // No hay lugar abajo (por ejemplo, en la última fila de la
+                    // tabla cerca del borde de la pantalla): se abre hacia arriba.
+                    menu.style.top = "";
+                    menu.style.bottom = (window.innerHeight - rect.top + 4) + "px";
+                } else {
+                    menu.style.bottom = "";
+                    menu.style.top = (rect.bottom + 4) + "px";
+                }
+
+                menu.classList.add("abierto");
+            }
+        }
+
+        document.addEventListener("click", function (evento) {
+            if (!evento.target.closest(".menu-acciones")) {
+                cerrarMenusAcciones();
+            }
+        });
+
+        // Si se hace scroll (por ejemplo el scroll horizontal de la tabla),
+        // el menú abierto quedaría desalineado del botón, así que se cierra.
+        document.addEventListener("scroll", cerrarMenusAcciones, true);
+        window.addEventListener("resize", cerrarMenusAcciones);
+
+        // ===== Búsqueda global (Ctrl+K) =====
+        // Busca a la vez en clientes, vehículos, proformas e inventario
+        // desde cualquier pantalla del sistema.
+        let resultadosActualesBusqueda = [];
+        let indiceResaltadoBusqueda = -1;
+        let temporizadorBusqueda = null;
+
+        function abrirBusquedaGlobal() {
+            const modal = document.getElementById("modalBusquedaGlobal");
+            if (!modal) return;
+
+            modal.classList.add("abierto");
+
+            const input = document.getElementById("inputBusquedaGlobal");
+            input.value = "";
+            input.focus();
+
+            document.getElementById("resultadosBusquedaGlobal").innerHTML = "";
+            resultadosActualesBusqueda = [];
+            indiceResaltadoBusqueda = -1;
+        }
+
+        function cerrarBusquedaGlobal() {
+            const modal = document.getElementById("modalBusquedaGlobal");
+            if (modal) modal.classList.remove("abierto");
+        }
+
+        function renderizarResultadosBusqueda() {
+            const contenedor = document.getElementById("resultadosBusquedaGlobal");
+            contenedor.innerHTML = "";
+
+            if (resultadosActualesBusqueda.length === 0) {
+                contenedor.innerHTML = '<p style="padding:14px 18px;color:#6b7280;font-size:13px;margin:0;">Sin resultados.</p>';
+                return;
+            }
+
+            resultadosActualesBusqueda.forEach(function (resultado) {
+                const item = document.createElement("a");
+                item.href = resultado.url;
+                item.className = "resultado-busqueda-global";
+                item.innerHTML =
+                    '<span class="badge badge-pendiente">' + resultado.tipo + '</span>' +
+                    '<span class="resultado-busqueda-texto"><strong>' + resultado.etiqueta + '</strong>' +
+                    (resultado.subtitulo ? ' — ' + resultado.subtitulo : '') + '</span>';
+                contenedor.appendChild(item);
+            });
+        }
+
+        function resaltarResultadoBusqueda(items) {
+            items.forEach(function (item) { item.classList.remove("resaltado"); });
+            if (items[indiceResaltadoBusqueda]) {
+                items[indiceResaltadoBusqueda].classList.add("resaltado");
+                items[indiceResaltadoBusqueda].scrollIntoView({ block: "nearest" });
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const modal = document.getElementById("modalBusquedaGlobal");
+            const input = document.getElementById("inputBusquedaGlobal");
+            if (!modal || !input) return;
+
+            modal.addEventListener("click", function (evento) {
+                if (evento.target === modal) cerrarBusquedaGlobal();
+            });
+
+            input.addEventListener("input", function () {
+                const consulta = this.value.trim();
+                clearTimeout(temporizadorBusqueda);
+
+                if (consulta.length < 2) {
+                    resultadosActualesBusqueda = [];
+                    document.getElementById("resultadosBusquedaGlobal").innerHTML = "";
+                    return;
+                }
+
+                temporizadorBusqueda = setTimeout(function () {
+                    fetch("/buscar-global?q=" + encodeURIComponent(consulta))
+                        .then(function (respuesta) { return respuesta.json(); })
+                        .then(function (datos) {
+                            resultadosActualesBusqueda = datos.resultados || [];
+                            indiceResaltadoBusqueda = -1;
+                            renderizarResultadosBusqueda();
+                        });
+                }, 250);
+            });
+
+            input.addEventListener("keydown", function (evento) {
+                const items = document.querySelectorAll(".resultado-busqueda-global");
+
+                if (evento.key === "ArrowDown") {
+                    evento.preventDefault();
+                    indiceResaltadoBusqueda = Math.min(indiceResaltadoBusqueda + 1, items.length - 1);
+                    resaltarResultadoBusqueda(items);
+                } else if (evento.key === "ArrowUp") {
+                    evento.preventDefault();
+                    indiceResaltadoBusqueda = Math.max(indiceResaltadoBusqueda - 1, 0);
+                    resaltarResultadoBusqueda(items);
+                } else if (evento.key === "Enter") {
+                    if (indiceResaltadoBusqueda >= 0 && items[indiceResaltadoBusqueda]) {
+                        evento.preventDefault();
+                        items[indiceResaltadoBusqueda].click();
+                    }
+                }
+            });
+        });
+
+        document.addEventListener("keydown", function (evento) {
+            const modal = document.getElementById("modalBusquedaGlobal");
+            if (!modal) return;
+
+            if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === "k") {
+                evento.preventDefault();
+                abrirBusquedaGlobal();
+            } else if (evento.key === "Escape" && modal.classList.contains("abierto")) {
+                cerrarBusquedaGlobal();
+            }
+        });
+    </script>
 </head>
 <body>
 
@@ -19,6 +413,11 @@
                 </div>
             </div>
 
+            <button type="button" class="boton-busqueda-global" onclick="abrirBusquedaGlobal()">
+                <span>🔍 Buscar</span>
+                <span>Ctrl+K</span>
+            </button>
+
             <nav class="sidebar-links">
                 <a href="/">Inicio</a>
                 <a href="/clientes">Clientes</a>
@@ -30,6 +429,10 @@
 
                 {% if session.get("rol") == "ADMIN" %}
                     <a href="/usuarios">Usuarios</a>
+                    <a href="/papelera">Papelera</a>
+                    <a href="/gastos">Gastos</a>
+                    <a href="/reportes/caja">Reporte de caja</a>
+                    <a href="/reportes/ganancia-repuestos">Ganancia de repuestos</a>
                 {% endif %}
 
                 <a href="/cambiar-password">Cambiar contraseña</a>
@@ -44,7 +447,8 @@
                     {% if messages %}
                         {% for category, message in messages %}
                             <div class="alert alert-{{ category }} {% if category == 'success' %}flash-message{% endif %}">
-                                {{ message }}
+                                <span>{{ message }}</span>
+                                <button type="button" class="alert-cerrar" onclick="this.closest('.alert').remove()" aria-label="Cerrar">×</button>
                             </div>
                         {% endfor %}
                     {% endif %}
@@ -55,40 +459,25 @@
         </main>
     </div>
 
-    <script>
-        function activarBusquedaEnSelect(inputId, selectId) {
-            const input = document.getElementById(inputId);
-            const select = document.getElementById(selectId);
+    {% if session.get("usuario_id") %}
+    <div class="modal-overlay" id="modalBusquedaGlobal">
+        <div class="modal-caja modal-busqueda">
+            <input type="text" id="inputBusquedaGlobal" placeholder="Buscar cliente, vehículo, proforma o repuesto..." autocomplete="off">
+            <div id="resultadosBusquedaGlobal" class="resultados-busqueda-global"></div>
+        </div>
+    </div>
+    {% endif %}
 
-            if (!input || !select) return;
+    <div class="modal-overlay" id="modalConfirmar">
+        <div class="modal-caja">
+            <p id="modalConfirmarTexto">¿Estás seguro?</p>
+            <div class="modal-acciones">
+                <button type="button" class="btn btn-secondary" id="modalConfirmarCancelar">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="modalConfirmarAceptar">Sí, continuar</button>
+            </div>
+        </div>
+    </div>
 
-            const opcionesOriginales = Array.from(select.options);
-
-            input.addEventListener("input", function () {
-                const texto = this.value.toLowerCase().trim();
-                const valorSeleccionado = select.value;
-
-                select.innerHTML = "";
-
-                opcionesOriginales.forEach(opcion => {
-                    if (!opcion.value) {
-                        select.appendChild(opcion.cloneNode(true));
-                        return;
-                    }
-
-                    const textoOpcion = opcion.text.toLowerCase();
-
-                    if (textoOpcion.includes(texto)) {
-                        const nuevaOpcion = opcion.cloneNode(true);
-                        if (opcion.value === valorSeleccionado) {
-                            nuevaOpcion.selected = true;
-                        }
-                        select.appendChild(nuevaOpcion);
-                    }
-                });
-            });
-        }
-    </script>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const mensajes = document.querySelectorAll(".flash-message");
@@ -102,7 +491,31 @@
                     mensaje.remove();
                 }, 500);
             });
-        }, 2000);
+        }, 4000);
+    });
+
+    // Le pone a cada <td> un data-label con el texto de su columna (leído
+    // del <th> correspondiente), para que en pantallas chicas la tabla se
+    // pueda mostrar como una lista de tarjetas (una fila = una tarjeta,
+    // con "Etiqueta: valor" en cada línea) en vez de forzar scroll
+    // horizontal. Es automático: no hace falta tocar cada plantilla.
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".table-responsive table").forEach(function (tabla) {
+            const encabezados = Array.from(tabla.querySelectorAll("thead th")).map(function (th) {
+                return th.textContent.trim();
+            });
+
+            tabla.querySelectorAll("tbody tr").forEach(function (fila) {
+                const celdas = fila.querySelectorAll("td");
+                if (celdas.length !== encabezados.length) return; // fila "sin resultados", etc.
+
+                celdas.forEach(function (celda, indice) {
+                    if (encabezados[indice]) {
+                        celda.setAttribute("data-label", encabezados[indice]);
+                    }
+                });
+            });
+        });
     });
 </script>
 

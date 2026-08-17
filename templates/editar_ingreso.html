@@ -15,7 +15,8 @@
         <div class="form-grid">
             <div class="form-group full">
                 <label>Vehículo</label>
-                <select name="id_vehiculo" required>
+                <input type="text" id="buscar_vehiculo" placeholder="Escribe placa, marca, modelo o propietario para buscar y seleccionar">
+                <select name="id_vehiculo" id="id_vehiculo" required>
                     {% for vehiculo in vehiculos %}
                         <option value="{{ vehiculo['id_vehiculo'] }}" {% if vehiculo['id_vehiculo'] == ingreso['id_vehiculo'] %}selected{% endif %}>
                             {{ vehiculo['placa'] }} - {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} - {{ vehiculo['nombre_completo'] }}
@@ -62,4 +63,8 @@
         </div>
     </form>
 </div>
+
+<script>
+    activarBusquedaEnSelect("buscar_vehiculo", "id_vehiculo");
+</script>
 {% endblock %}

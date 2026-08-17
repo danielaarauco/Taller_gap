@@ -11,6 +11,27 @@
         </div>
     </div>
 
+    <div class="stats-grid">
+        <a class="stat-tile" href="/proformas?pago=Pendiente">
+            <span class="stat-numero">{{ proformas_pendientes_pago }}</span>
+            <span class="stat-etiqueta">Proformas pendientes de pago</span>
+        </a>
+        <a class="stat-tile" href="/ingresos">
+            <span class="stat-numero">{{ vehiculos_en_taller }}</span>
+            <span class="stat-etiqueta">Vehículos en el taller ahora</span>
+        </a>
+        <a class="stat-tile {% if items_agotados > 0 %}stat-alerta{% endif %}" href="/inventario?disponibilidad=agotado">
+            <span class="stat-numero">{{ items_agotados }}</span>
+            <span class="stat-etiqueta">Ítems agotados en inventario</span>
+        </a>
+        <a class="stat-tile" href="/recibos">
+            <span class="stat-numero">{{ cantidad_recibos_mes }}</span>
+            <span class="stat-etiqueta">Recibos este mes ({{ monto_recibido_mes|moneda }})</span>
+        </a>
+    </div>
+</div>
+
+<div class="card">
     <div class="info-grid">
         <div class="info-box">
             <h3>Clientes</h3>

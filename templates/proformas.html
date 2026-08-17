@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_iconos.html" import icono_filtro, icono_buscar %}
 
 {% block title %}Proformas{% endblock %}
 
@@ -7,16 +8,53 @@
     <div class="page-header">
         <div>
             <h1>Proformas</h1>
-            <p>Busca proformas por cliente o por rango de fechas.</p>
+            <p>Busca proformas por cliente, estado, pago o rango de fechas.</p>
         </div>
         <a class="btn btn-primary" href="/proformas/nuevo">Registrar proforma</a>
     </div>
 
-    <form method="GET" action="/proformas" class="mb-3">
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Cliente</label>
-                <select name="id_cliente">
+    <form method="GET" action="/proformas">
+        <div class="toolbar-filtros">
+            <span class="icono-filtro">{{ icono_filtro() }}</span>
+
+            <div class="campo-inline">
+                <label>Estado</label>
+                <select name="estado" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="Pendiente" {% if estado == "Pendiente" %}selected{% endif %}>Pendiente</option>
+                    <option value="Aprobada" {% if estado == "Aprobada" %}selected{% endif %}>Aprobada</option>
+                    <option value="Rechazada" {% if estado == "Rechazada" %}selected{% endif %}>Rechazada</option>
+                </select>
+            </div>
+
+            <div class="campo-inline">
+                <label>Pago</label>
+                <select name="pago" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="Pendiente" {% if pago == "Pendiente" %}selected{% endif %}>Pendiente</option>
+                    <option value="Realizado" {% if pago == "Realizado" %}selected{% endif %}>Realizado</option>
+                </select>
+            </div>
+
+            <div class="campo-inline">
+                <label>Desde</label>
+                <input type="date" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde or '' }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="campo-inline">
+                <label>Hasta</label>
+                <input type="date" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta or '' }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="atajos-fecha">
+                <button type="button" onclick="atajoFecha('hoy')">Hoy</button>
+                <button type="button" onclick="atajoFecha('semana')">Esta semana</button>
+                <button type="button" onclick="atajoFecha('mes')">Este mes</button>
+            </div>
+
+            <div class="campo-busqueda">
+                <input type="text" id="buscar_cliente" placeholder="Buscar cliente" autofocus>
+                <select name="id_cliente" id="id_cliente" onchange="this.form.submit()">
                     <option value="">Todos</option>
                     {% for cliente in clientes %}
                         <option value="{{ cliente['id_cliente'] }}" {% if id_cliente == cliente['id_cliente']|string %}selected{% endif %}>
@@ -24,24 +62,32 @@
                         </option>
                     {% endfor %}
                 </select>
+                <button type="submit" class="btn-buscar-icono" aria-label="Buscar">{{ icono_buscar() }}</button>
             </div>
-
-            <div class="form-group">
-                <label>Fecha desde</label>
-                <input type="date" name="fecha_desde" value="{{ fecha_desde or '' }}">
-            </div>
-
-            <div class="form-group">
-                <label>Fecha hasta</label>
-                <input type="date" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
-            </div>
-        </div>
-
-        <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
-            <a class="btn btn-secondary" href="/proformas">Limpiar</a>
         </div>
     </form>
+
+    {% set filtros_activos = [] %}
+    {% if id_cliente %}
+        {% for cliente in clientes %}
+            {% if cliente['id_cliente']|string == id_cliente %}{% set _ = filtros_activos.append(("Cliente", cliente['nombre_completo'], "id_cliente")) %}{% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if estado %}{% set _ = filtros_activos.append(("Estado", estado, "estado")) %}{% endif %}
+    {% if pago %}{% set _ = filtros_activos.append(("Pago", pago, "pago")) %}{% endif %}
+    {% if fecha_desde %}{% set _ = filtros_activos.append(("Desde", fecha_desde, "fecha_desde")) %}{% endif %}
+    {% if fecha_hasta %}{% set _ = filtros_activos.append(("Hasta", fecha_hasta, "fecha_hasta")) %}{% endif %}
+
+    {% if filtros_activos %}
+    <div class="chips-filtros">
+        {% for etiqueta, valor, clave in filtros_activos %}
+            <span class="chip-filtro">{{ etiqueta }}: {{ valor }} <a href="{{ url_sin_filtro(clave) }}" aria-label="Quitar filtro">×</a></span>
+        {% endfor %}
+        <a class="chip-limpiar-todo" href="{{ url_sin_filtros() }}">Limpiar todo</a>
+    </div>
+    {% endif %}
+
+    <p class="contador-resultados">{{ proformas|length }} proforma{{ '' if proformas|length == 1 else 's' }} encontrada{{ '' if proformas|length == 1 else 's' }}</p>
 
     <div class="table-responsive">
         <table>
@@ -64,7 +110,7 @@
                 <tr>
                     <td>{{ proforma["id_proforma"] }}</td>
                     <td>{{ proforma["numero_proforma"] }}</td>
-                    <td>{{ proforma["fecha"] }}</td>
+                    <td>{{ proforma["fecha"]|fecha_es }}</td>
                     <td>{{ proforma["tipo_proforma"] }}</td>
 
                     <td>
@@ -83,7 +129,7 @@
                         {% endif %}
                     </td>
 
-                    <td>{{ proforma["total_general"] }}</td>
+                    <td>{{ proforma["total_general"]|moneda }}</td>
 
                     <td>
                         {% if proforma["estado"] == "Pendiente" %}
@@ -106,15 +152,18 @@
                     </td>
 
                     <td>
-                        <div class="actions">
-                            <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}">Ver</a>
-                            <a class="btn btn-warning" href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
-                            <a class="btn btn-primary" href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Detalle</a>
-                            {% if session.get("rol") == "ADMIN" %}
-                            <form class="inline-form" action="/proformas/{{ proforma['id_proforma'] }}/eliminar" method="POST">
-                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar esta proforma?')">Eliminar</button>
-                            </form>
-                            {% endif %}
+                        <div class="menu-acciones">
+                            <button type="button" class="btn-menu-acciones" onclick="toggleMenuAcciones(this)" aria-label="Acciones">⋮</button>
+                            <div class="menu-acciones-lista">
+                                <a href="/proformas/{{ proforma['id_proforma'] }}">Ver</a>
+                                <a href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
+                                <a href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Agregar detalle</a>
+                                {% if session.get("rol") == "ADMIN" %}
+                                <form action="/proformas/{{ proforma['id_proforma'] }}/eliminar" method="POST">
+                                    <button type="submit" class="item-peligro" onclick="return confirmarAccion(this, '¿Eliminar esta proforma? Se moverá a la papelera y vas a poder restaurarla si fue un error.')">Eliminar</button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -129,4 +178,8 @@
         </table>
     </div>
 </div>
+
+<script>
+    activarBusquedaEnSelect("buscar_cliente", "id_cliente");
+</script>
 {% endblock %}

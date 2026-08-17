@@ -3,6 +3,10 @@
 {% block title %}Ver Proforma{% endblock %}
 
 {% block content %}
+{% set nombre_cliente = proforma["nombre_completo"] if proforma["tipo_proforma"] == "FORMAL" else proforma["nombre_cliente_manual"] %}
+{% set telefono_cliente = proforma["telefono"] if proforma["tipo_proforma"] == "FORMAL" else proforma["telefono_manual"] %}
+{% set mensaje_whatsapp = "Hola " ~ (nombre_cliente or "") ~ ", te compartimos el detalle de tu proforma " ~ proforma["numero_proforma"] ~ " del " ~ (proforma["fecha"]|fecha_es) ~ ". Total: " ~ (proforma["total_general"]|moneda) ~ ". Cualquier consulta, escribinos por acá. ¡Gracias por confiar en nosotros!" %}
+{% set link_wpp = link_whatsapp(telefono_cliente, mensaje_whatsapp) %}
 <div class="card">
     <div class="page-header">
         <div>
@@ -13,6 +17,9 @@
             <a class="btn btn-primary" href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Agregar detalle</a>
             <a class="btn btn-warning" href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
             <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}/pdf" target="_blank">Exportar PDF</a>
+            {% if link_wpp %}
+            <a class="btn btn-whatsapp" href="{{ link_wpp }}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+            {% endif %}
             <a class="btn btn-success" href="/recibos/nuevo/{{ proforma['id_proforma'] }}">Crear recibo</a>
         </div>
     </div>
@@ -50,12 +57,20 @@
     </div>
 
     <div class="info-box mb-3">
-        <p><strong>Fecha:</strong> {{ proforma["fecha"] }}</p>
+        <p><strong>Fecha:</strong> {{ proforma["fecha"]|fecha_es }}</p>
         <p><strong>Tipo de proforma:</strong> {{ proforma["tipo_proforma"] }}</p>
         <p><strong>Estado:</strong> {{ proforma["estado"] }}</p>
         <p><strong>Pago:</strong> {{ proforma["pago"] }}</p>
         <p><strong>Observaciones:</strong> {{ proforma["observaciones"] }}</p>
         <p><strong>Nota:</strong> {{ proforma["nota_documento"] }}</p>
+        <p>
+            <strong>Stock de inventario:</strong>
+            {% if proforma["stock_descontado"] %}
+                <span class="badge badge-aprobada">Descontado (recibo emitido)</span>
+            {% else %}
+                <span class="badge badge-pendiente">Pendiente (se descuenta al emitir el recibo)</span>
+            {% endif %}
+        </p>
     </div>
 </div>
 
@@ -91,14 +106,14 @@
                             {% endif %}
                         </td>
                         <td>{{ item["cantidad"] }}</td>
-                        <td>{{ item["precio_unitario"] }}</td>
-                        <td>{{ item["subtotal"] }}</td>
+                        <td>{{ item["precio_unitario"]|moneda }}</td>
+                        <td>{{ item["subtotal"]|moneda }}</td>
                         <td>
                             <div class="actions">
                                 <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
                                 {% if session.get("rol") == "ADMIN" %}
                                 <form class="inline-form" action="/detalle-proforma/{{ item['id_detalle'] }}/eliminar" method="POST">
-                                    <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
+                                    <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
                                 </form>
                                 {% endif %}
                             </div>
@@ -146,14 +161,14 @@
                     <tr>
                         <td>{{ item["descripcion"] }}</td>
                         <td>{{ item["cantidad"] }}</td>
-                        <td>{{ item["precio_unitario"] }}</td>
-                        <td>{{ item["subtotal"] }}</td>
+                        <td>{{ item["precio_unitario"]|moneda }}</td>
+                        <td>{{ item["subtotal"]|moneda }}</td>
                         <td>
                             <div class="actions">
                                 <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
                                 {% if session.get("rol") == "ADMIN" %}
                                 <form class="inline-form" action="/detalle-proforma/{{ item['id_detalle'] }}/eliminar" method="POST">
-                                    <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
+                                    <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
                                 </form>
                                 {% endif %}
                             </div>
@@ -174,11 +189,11 @@
     <h2>Resumen</h2>
     <div class="info-grid">
         <div class="info-box">
-            <p><strong>Subtotal repuestos:</strong> {{ proforma["subtotal_repuestos"] or 0 }}</p>
-            <p><strong>Subtotal mano de obra:</strong> {{ proforma["subtotal_mano_obra"] or 0 }}</p>
+            <p><strong>Subtotal repuestos:</strong> {{ proforma["subtotal_repuestos"]|moneda }}</p>
+            <p><strong>Subtotal mano de obra:</strong> {{ proforma["subtotal_mano_obra"]|moneda }}</p>
         </div>
         <div class="info-box">
-            <p><strong>Total general:</strong> {{ proforma["total_general"] or 0 }}</p>
+            <p><strong>Total general:</strong> {{ proforma["total_general"]|moneda }}</p>
             <p><strong>Total literal:</strong> {{ proforma["total_literal"] or '' }}</p>
         </div>
     </div>
@@ -186,7 +201,7 @@
     <div class="form-actions" style="margin-top: 20px;">
         {% if session.get("rol") == "ADMIN" %}
         <form class="inline-form" action="/proformas/{{ proforma['id_proforma'] }}/eliminar" method="POST">
-            <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar esta proforma?')">Eliminar proforma</button>
+            <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Eliminar esta proforma? Se moverá a la papelera y vas a poder restaurarla si fue un error.')">Eliminar proforma</button>
         </form>
         {% endif %}
         <a class="btn btn-secondary" href="/proformas">Volver a proformas</a>

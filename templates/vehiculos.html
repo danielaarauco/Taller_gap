@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_iconos.html" import icono_filtro, icono_buscar %}
 
 {% block title %}Vehículos{% endblock %}
 
@@ -12,16 +13,14 @@
         <a class="btn btn-primary" href="/vehiculos/nuevo">Registrar vehículo</a>
     </div>
 
-    <form method="GET" action="/vehiculos" class="mb-3">
-        <div class="form-grid">
-            <div class="form-group">
-                <label>Buscar por placa o VIN</label>
-                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Ej: 5015KRC o VIN">
-            </div>
+    <form method="GET" action="/vehiculos">
+        <div class="toolbar-filtros">
+            <span class="icono-filtro">{{ icono_filtro() }}</span>
 
-            <div class="form-group">
+            <div class="campo-inline">
                 <label>Propietario</label>
-                <select name="id_cliente">
+                <input type="text" id="buscar_cliente" placeholder="Todos (escribe para buscar)">
+                <select name="id_cliente" id="id_cliente" onchange="this.form.submit()">
                     <option value="">Todos</option>
                     {% for cliente in clientes %}
                         <option value="{{ cliente['id_cliente'] }}" {% if id_cliente == cliente['id_cliente']|string %}selected{% endif %}>
@@ -31,32 +30,55 @@
                 </select>
             </div>
 
-            <div class="form-group">
+            <div class="campo-inline">
                 <label>Modelo</label>
                 <input type="text" name="modelo" value="{{ modelo or '' }}" placeholder="Ej: Civic SI">
             </div>
 
-            <div class="form-group">
+            <div class="campo-inline">
                 <label>Tipo</label>
                 <input type="text" name="tipo" value="{{ tipo or '' }}" placeholder="Ej: Sedan">
             </div>
 
-            <div class="form-group">
+            <div class="campo-inline">
                 <label>Año</label>
-                <input type="text" name="anio" value="{{ anio or '' }}" placeholder="Ej: 2017">
+                <input type="text" name="anio" value="{{ anio or '' }}" placeholder="2017" style="width: 80px;">
             </div>
 
-            <div class="form-group">
+            <div class="campo-inline">
                 <label>Color</label>
                 <input type="text" name="color" value="{{ color or '' }}" placeholder="Ej: Negro">
             </div>
-        </div>
 
-        <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Buscar / Filtrar</button>
-            <a class="btn btn-secondary" href="/vehiculos">Limpiar</a>
+            <div class="campo-busqueda">
+                <input type="text" name="busqueda" value="{{ busqueda or '' }}" placeholder="Buscar por placa o VIN" autofocus>
+                <button type="submit" class="btn-buscar-icono" aria-label="Buscar">{{ icono_buscar() }}</button>
+            </div>
         </div>
     </form>
+
+    {% set filtros_activos = [] %}
+    {% if busqueda %}{% set _ = filtros_activos.append(("Buscar", busqueda, "busqueda")) %}{% endif %}
+    {% if id_cliente %}
+        {% for cliente in clientes %}
+            {% if cliente['id_cliente']|string == id_cliente %}{% set _ = filtros_activos.append(("Propietario", cliente['nombre_completo'], "id_cliente")) %}{% endif %}
+        {% endfor %}
+    {% endif %}
+    {% if modelo %}{% set _ = filtros_activos.append(("Modelo", modelo, "modelo")) %}{% endif %}
+    {% if tipo %}{% set _ = filtros_activos.append(("Tipo", tipo, "tipo")) %}{% endif %}
+    {% if anio %}{% set _ = filtros_activos.append(("Año", anio, "anio")) %}{% endif %}
+    {% if color %}{% set _ = filtros_activos.append(("Color", color, "color")) %}{% endif %}
+
+    {% if filtros_activos %}
+    <div class="chips-filtros">
+        {% for etiqueta, valor, clave in filtros_activos %}
+            <span class="chip-filtro">{{ etiqueta }}: {{ valor }} <a href="{{ url_sin_filtro(clave) }}" aria-label="Quitar filtro">×</a></span>
+        {% endfor %}
+        <a class="chip-limpiar-todo" href="{{ url_sin_filtros() }}">Limpiar todo</a>
+    </div>
+    {% endif %}
+
+    <p class="contador-resultados">{{ vehiculos|length }} vehículo{{ '' if vehiculos|length == 1 else 's' }} encontrado{{ '' if vehiculos|length == 1 else 's' }}</p>
 
     <div class="table-responsive">
         <table>
@@ -95,7 +117,7 @@
                             <a class="btn btn-warning" href="/vehiculos/{{ vehiculo['id_vehiculo'] }}/editar">Editar</a>
                             {% if session.get("rol") == "ADMIN" %}
                             <form class="inline-form" action="/vehiculos/{{ vehiculo['id_vehiculo'] }}/eliminar" method="POST">
-                                <button class="btn btn-danger" type="submit" onclick="return confirm('¿Seguro que deseas eliminar este vehículo?')">Eliminar</button>
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Eliminar este vehículo? Se moverá a la papelera y vas a poder restaurarlo si fue un error.')">Eliminar</button>
                             </form>
                             {% endif %}
                         </div>
@@ -112,4 +134,8 @@
         </table>
     </div>
 </div>
+
+<script>
+    activarBusquedaEnSelect("buscar_cliente", "id_cliente");
+</script>
 {% endblock %}

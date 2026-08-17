@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Gasto{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Editar gasto</h1>
+            <p>Categoría: <strong>{{ gasto["categoria"] }}</strong>{% if gasto["descripcion_item"] %} — Repuesto: <strong>{{ gasto["descripcion_item"] }}</strong> (x{{ gasto["cantidad"] }}){% endif %}</p>
+        </div>
+    </div>
+
+    {% if gasto["categoria"] == "Compra de repuestos" %}
+    <div class="alert alert-warning">
+        <span>La categoría, el repuesto y la cantidad no se pueden cambiar acá (afectan el stock ya sumado). Si te equivocaste en eso, eliminá este gasto y registrá uno nuevo.</span>
+    </div>
+    {% endif %}
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" name="fecha" value="{{ gasto['fecha'] }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Monto</label>
+                <input type="number" step="0.01" name="monto" min="0.01" value="{{ gasto['monto'] }}" required>
+            </div>
+
+            {% if gasto["categoria"] != "Compra de repuestos" %}
+            <div class="form-group full">
+                <label>Descripción</label>
+                <input type="text" name="descripcion" value="{{ gasto['descripcion'] or '' }}">
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-success" type="submit">Guardar cambios</button>
+            <a class="btn btn-secondary" href="/gastos">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

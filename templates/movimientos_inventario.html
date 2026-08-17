@@ -47,7 +47,7 @@
                 {% for mov in movimientos %}
                 <tr>
                     <td>{{ mov["id_movimiento"] }}</td>
-                    <td>{{ mov["fecha_movimiento"] }}</td>
+                    <td>{{ mov["fecha_movimiento"]|fecha_es }}</td>
                     <td>{{ mov["tipo_movimiento"] }}</td>
                     <td>{{ mov["cantidad"] }}</td>
                     <td>{{ mov["motivo"] }}</td>

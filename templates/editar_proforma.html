@@ -16,12 +16,8 @@
     <form method="POST">
         <div class="form-grid">
             <div class="form-group full">
-                <label>Buscar cliente</label>
-                <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono">
-            </div>
-
-            <div class="form-group">
                 <label>Cliente</label>
+                <input type="text" id="buscar_cliente" placeholder="Escribe nombre o teléfono para buscar y seleccionar">
                 <select name="id_cliente" id="id_cliente" required>
                     {% for cliente in clientes %}
                         <option value="{{ cliente['id_cliente'] }}" {% if cliente['id_cliente'] == proforma['id_cliente'] %}selected{% endif %}>
@@ -32,12 +28,8 @@
             </div>
 
             <div class="form-group full">
-                <label>Buscar vehículo</label>
-                <input type="text" id="buscar_vehiculo" placeholder="Escribe placa, marca, modelo o propietario">
-            </div>
-
-            <div class="form-group">
                 <label>Vehículo</label>
+                <input type="text" id="buscar_vehiculo" placeholder="Escribe placa, marca, modelo o propietario para buscar y seleccionar">
                 <select name="id_vehiculo" id="id_vehiculo" required>
                     {% for vehiculo in vehiculos %}
                         <option value="{{ vehiculo['id_vehiculo'] }}" data-cliente="{{ vehiculo['id_cliente'] }}" {% if vehiculo['id_vehiculo'] == proforma['id_vehiculo'] %}selected{% endif %}>
@@ -106,10 +98,9 @@
             }
         }
 
-        const inputBuscarVehiculo = document.getElementById("buscar_vehiculo");
-        if (inputBuscarVehiculo) {
-            inputBuscarVehiculo.value = "";
-        }
+        // Avisa al combo del vehículo que sus opciones cambiaron, para que
+        // actualice el texto que se ve en su barra de búsqueda.
+        vehiculoSelect.dispatchEvent(new Event("change"));
     }
 
     clienteSelect.addEventListener("change", filtrarVehiculosPorCliente);

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% from "_iconos.html" import icono_filtro, icono_buscar %}
+
+{% block title %}Gastos{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h1>Gastos</h1>
+            <p>Compras de repuestos y otros gastos del taller (sirve de base para el reporte de caja).</p>
+        </div>
+        <a class="btn btn-primary" href="/gastos/nuevo">Registrar gasto</a>
+    </div>
+
+    <form method="GET" action="/gastos">
+        <div class="toolbar-filtros">
+            <span class="icono-filtro">{{ icono_filtro() }}</span>
+
+            <div class="campo-inline">
+                <label>Categoría</label>
+                <select name="categoria" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for c in categorias %}
+                        <option value="{{ c }}" {% if categoria == c %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="campo-inline">
+                <label>Desde</label>
+                <input type="date" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde or '' }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="campo-inline">
+                <label>Hasta</label>
+                <input type="date" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta or '' }}" onchange="this.form.submit()">
+            </div>
+
+            <div class="atajos-fecha">
+                <button type="button" onclick="atajoFecha('hoy')">Hoy</button>
+                <button type="button" onclick="atajoFecha('semana')">Esta semana</button>
+                <button type="button" onclick="atajoFecha('mes')">Este mes</button>
+            </div>
+
+            <div class="campo-busqueda">
+                <button type="submit" class="btn-buscar-icono" aria-label="Filtrar">{{ icono_buscar() }}</button>
+            </div>
+        </div>
+    </form>
+
+    {% set filtros_activos = [] %}
+    {% if categoria %}{% set _ = filtros_activos.append(("Categoría", categoria, "categoria")) %}{% endif %}
+    {% if fecha_desde %}{% set _ = filtros_activos.append(("Desde", fecha_desde, "fecha_desde")) %}{% endif %}
+    {% if fecha_hasta %}{% set _ = filtros_activos.append(("Hasta", fecha_hasta, "fecha_hasta")) %}{% endif %}
+
+    {% if filtros_activos %}
+    <div class="chips-filtros">
+        {% for etiqueta, valor, clave in filtros_activos %}
+            <span class="chip-filtro">{{ etiqueta }}: {{ valor }} <a href="{{ url_sin_filtro(clave) }}" aria-label="Quitar filtro">×</a></span>
+        {% endfor %}
+        <a class="chip-limpiar-todo" href="{{ url_sin_filtros() }}">Limpiar todo</a>
+    </div>
+    {% endif %}
+
+    <p class="contador-resultados">
+        {{ gastos|length }} gasto{{ '' if gastos|length == 1 else 's' }} —
+        total {{ gastos|sum(attribute='monto')|moneda }}
+    </p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Categoría</th>
+                    <th>Descripción</th>
+                    <th>Repuesto</th>
+                    <th>Monto</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for gasto in gastos %}
+                <tr>
+                    <td>{{ gasto["fecha"]|fecha_es }}</td>
+                    <td>{{ gasto["categoria"] }}</td>
+                    <td>{{ gasto["descripcion"] }}</td>
+                    <td>{{ gasto["descripcion_item"] or '—' }}{% if gasto["cantidad"] %} (x{{ gasto["cantidad"] }}){% endif %}</td>
+                    <td>{{ gasto["monto"]|moneda }}</td>
+                    <td>
+                        <div class="actions">
+                            <a class="btn btn-warning" href="/gastos/{{ gasto['id_gasto'] }}/editar">Editar</a>
+                            <form class="inline-form" action="/gastos/{{ gasto['id_gasto'] }}/eliminar" method="POST">
+                                <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Eliminar este gasto? Si era una compra de repuestos, se repone el stock que había sumado.')">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not gastos %}
+                <tr>
+                    <td colspan="6" class="center">No hay gastos registrados con esos filtros.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

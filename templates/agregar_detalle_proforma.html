@@ -39,19 +39,15 @@
         <div id="bloque_inventario" style="display:none;">
             <div class="form-grid">
                 <div class="form-group full">
-                    <label>Buscar repuesto en inventario</label>
-                    <input type="text" id="buscar_item" placeholder="Escribe descripción, categoría o marca">
-                </div>
-
-                <div class="form-group full">
                     <label>Repuesto</label>
+                    <input type="text" id="buscar_item" placeholder="Escribe descripción, categoría o marca para buscar y seleccionar">
                     <select name="id_item" id="id_item" onchange="mostrarStock()">
                         <option value="">Seleccione un repuesto</option>
                         {% for item in items_inventario %}
                             <option value="{{ item['id_item'] }}"
                                     data-stock="{{ item['cantidad'] }}"
                                     {% if item['cantidad'] == 0 %}disabled{% endif %}>
-                                {{ item['descripcion'] }}{% if item['marca'] %} - {{ item['marca'] }}{% endif %} (Stock: {{ item['cantidad'] }} - Precio venta: {{ "%.2f"|format(item['precio_venta'] or 0) }})
+                                {{ item['descripcion'] }}{% if item['marca'] %} - {{ item['marca'] }}{% endif %} (Stock: {{ item['cantidad'] }} - Precio venta: {{ item['precio_venta']|moneda }})
                             </option>
                         {% endfor %}
                     </select>

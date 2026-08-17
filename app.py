@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, make_response, flash, session
+import unicodedata
+from urllib.parse import quote
+from flask import Flask, render_template, request, redirect, url_for, make_response, flash, session, jsonify
 from xhtml2pdf import pisa
 from io import BytesIO
 import sqlite3
@@ -19,10 +21,80 @@ app = Flask(__name__)
 app.secret_key = "clave_super_secreta_taller_2026"
 
 
+def _sin_acentos(texto):
+    """Normaliza texto para comparar ignorando acentos y mayúsculas
+    (para que buscar "jose" encuentre "José", por ejemplo)."""
+    if texto is None:
+        return texto
+    texto = str(texto)
+    sin_tildes = "".join(
+        caracter for caracter in unicodedata.normalize("NFKD", texto)
+        if not unicodedata.combining(caracter)
+    )
+    return sin_tildes.lower()
+
+
 def conectar_db():
     conexion = sqlite3.connect("taller.db")
     conexion.row_factory = sqlite3.Row
+    conexion.create_function("SIN_ACENTOS", 1, _sin_acentos)
     return conexion
+
+
+@app.template_global()
+def url_sin_filtro(*claves):
+    """URL de la página actual quitando los parámetros de filtro indicados
+    (para el botón 'x' de cada chip de filtro activo)."""
+    args = request.args.to_dict(flat=True)
+    for clave in claves:
+        args.pop(clave, None)
+    return url_for(request.endpoint, **args)
+
+
+@app.template_global()
+def url_sin_filtros():
+    """URL de la página actual sin ningún filtro (para 'Limpiar todo')."""
+    return url_for(request.endpoint)
+
+
+@app.template_global()
+def link_whatsapp(telefono, mensaje):
+    """Arma el link de WhatsApp (wa.me) para escribirle a un cliente: el
+    teléfono se normaliza al formato internacional de Bolivia (+591) y el
+    mensaje va precargado. WhatsApp no permite adjuntar archivos por
+    link, así que esto solo prepara el texto — el PDF se comparte aparte."""
+    numero = "".join(caracter for caracter in str(telefono or "") if caracter.isdigit())
+
+    if not numero:
+        return None
+
+    if not numero.startswith("591"):
+        numero = "591" + numero
+
+    return f"https://wa.me/{numero}?text={quote(mensaje)}"
+
+
+@app.template_filter("moneda")
+def formato_moneda(valor):
+    """Formatea un número como moneda: Bs 1,234.56 (para que se vea igual
+    en toda la app, en vez de floats crudos de Python)."""
+    try:
+        numero = float(valor) if valor is not None else 0.0
+    except (TypeError, ValueError):
+        numero = 0.0
+    return f"Bs {numero:,.2f}"
+
+
+@app.template_filter("fecha_es")
+def formato_fecha(valor):
+    """Convierte una fecha guardada como AAAA-MM-DD a DD/MM/AAAA. Si no
+    tiene ese formato (o está vacía), la devuelve tal cual."""
+    if not valor:
+        return ""
+    try:
+        return date.fromisoformat(str(valor)[:10]).strftime("%d/%m/%Y")
+    except ValueError:
+        return valor
 ######################
 def limpiar_texto(texto):
     return " ".join(texto.strip().split()) if texto else ""
@@ -150,6 +222,107 @@ def recalcular_totales_proforma(id_proforma):
 
     conexion.commit()
     conexion.close()
+
+
+def _guardar_items_proforma(cursor, id_proforma):
+    """Guarda los ítems (repuestos de inventario, repuestos externos y
+    mano de obra) que se arman en la misma pantalla al crear una
+    proforma. Usa el mismo cursor/transacción de quien la llama (no hace
+    commit acá). Devuelve una lista de mensajes de error: si viene vacía,
+    todos los ítems se guardaron bien."""
+    modos = request.form.getlist("item_modo")
+    ids_item = request.form.getlist("item_id_item")
+    descripciones = request.form.getlist("item_descripcion")
+    cantidades = request.form.getlist("item_cantidad")
+    precios = request.form.getlist("item_precio_unitario")
+
+    errores = []
+
+    for indice, modo in enumerate(modos):
+        modo = modo.strip()
+        if not modo:
+            continue
+
+        numero_item = indice + 1
+        cantidad_texto = cantidades[indice].strip() if indice < len(cantidades) else ""
+
+        try:
+            cantidad = int(cantidad_texto)
+        except ValueError:
+            errores.append(f"Ítem #{numero_item}: la cantidad no es válida.")
+            continue
+
+        if cantidad <= 0:
+            errores.append(f"Ítem #{numero_item}: la cantidad debe ser mayor a cero.")
+            continue
+
+        id_item = None
+
+        if modo == "inventario":
+            id_item_texto = ids_item[indice].strip() if indice < len(ids_item) else ""
+
+            if not id_item_texto:
+                errores.append(f"Ítem #{numero_item}: falta seleccionar el repuesto del inventario.")
+                continue
+
+            try:
+                id_item = int(id_item_texto)
+            except ValueError:
+                errores.append(f"Ítem #{numero_item}: repuesto de inventario inválido.")
+                continue
+
+            cursor.execute("SELECT * FROM inventario WHERE id_item = ?", (id_item,))
+            item_inventario = cursor.fetchone()
+
+            if item_inventario is None:
+                errores.append(f"Ítem #{numero_item}: el repuesto seleccionado ya no existe en inventario.")
+                continue
+
+            if cantidad > item_inventario["cantidad"]:
+                errores.append(
+                    f"Ítem #{numero_item}: stock insuficiente de \"{item_inventario['descripcion']}\" "
+                    f"(disponible: {item_inventario['cantidad']})."
+                )
+                continue
+
+            tipo_item = "REPUESTO"
+            descripcion = item_inventario["descripcion"]
+            precio_unitario = item_inventario["precio_venta"] or 0
+
+        elif modo in ("externo", "mano_obra"):
+            descripcion = limpiar_texto(descripciones[indice]).upper() if indice < len(descripciones) else ""
+            precio_texto = precios[indice].strip() if indice < len(precios) else ""
+
+            if not descripcion:
+                errores.append(f"Ítem #{numero_item}: falta la descripción.")
+                continue
+
+            try:
+                precio_unitario = float(precio_texto)
+            except ValueError:
+                errores.append(f"Ítem #{numero_item}: el precio unitario no es válido.")
+                continue
+
+            if precio_unitario < 0:
+                errores.append(f"Ítem #{numero_item}: el precio unitario no puede ser negativo.")
+                continue
+
+            tipo_item = "MANO_OBRA" if modo == "mano_obra" else "REPUESTO"
+
+        else:
+            errores.append(f"Ítem #{numero_item}: tipo de ítem inválido.")
+            continue
+
+        subtotal = cantidad * precio_unitario
+
+        cursor.execute("""
+            INSERT INTO detalle_proforma (
+                id_proforma, tipo_item, descripcion, cantidad, precio_unitario, subtotal, id_item
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (id_proforma, tipo_item, descripcion, cantidad, precio_unitario, subtotal, id_item))
+
+    return errores
 #################
 def convertir_html_a_pdf(html):
     resultado = BytesIO()
@@ -198,7 +371,179 @@ def roles_requeridos(*roles_permitidos):
 @app.route("/")
 @login_requerido
 def inicio():
-    return render_template("index.html")
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT COUNT(*) FROM proformas
+        WHERE activo = 1 AND pago = 'Pendiente'
+    """)
+    proformas_pendientes_pago = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*) FROM ingresos
+        WHERE estado != 'Entregado'
+    """)
+    vehiculos_en_taller = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM inventario WHERE cantidad = 0")
+    items_agotados = cursor.fetchone()[0]
+
+    mes_actual = date.today().strftime("%Y-%m")
+    cursor.execute("""
+        SELECT COALESCE(SUM(monto_recibido), 0), COUNT(*) FROM recibos
+        WHERE substr(fecha, 1, 7) = ?
+    """, (mes_actual,))
+    fila_recibos_mes = cursor.fetchone()
+    monto_recibido_mes = fila_recibos_mes[0]
+    cantidad_recibos_mes = fila_recibos_mes[1]
+
+    conexion.close()
+
+    return render_template(
+        "index.html",
+        proformas_pendientes_pago=proformas_pendientes_pago,
+        vehiculos_en_taller=vehiculos_en_taller,
+        items_agotados=items_agotados,
+        cantidad_recibos_mes=cantidad_recibos_mes,
+        monto_recibido_mes=monto_recibido_mes
+    )
+
+
+#PAPELERA (clientes, vehículos y proformas eliminados, para restaurar o borrar definitivamente)
+@app.route("/papelera")
+@login_requerido
+@roles_requeridos("ADMIN")
+def papelera():
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("SELECT * FROM clientes WHERE activo = 0 ORDER BY id_cliente DESC")
+    clientes = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT v.*, c.nombre_completo
+        FROM vehiculos v
+        LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+        WHERE v.activo = 0
+        ORDER BY v.id_vehiculo DESC
+    """)
+    vehiculos = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT p.*, c.nombre_completo, v.placa
+        FROM proformas p
+        LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+        LEFT JOIN vehiculos v ON p.id_vehiculo = v.id_vehiculo
+        WHERE p.activo = 0
+        ORDER BY p.id_proforma DESC
+    """)
+    proformas = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "papelera.html",
+        clientes=clientes,
+        vehiculos=vehiculos,
+        proformas=proformas
+    )
+
+
+#BUSQUEDA GLOBAL (Ctrl+K): busca en clientes, vehículos, proformas e inventario a la vez
+@app.route("/buscar-global")
+@login_requerido
+def buscar_global():
+    consulta = request.args.get("q", "").strip()
+
+    if len(consulta) < 2:
+        return jsonify({"resultados": []})
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+    patron = f"%{consulta}%"
+    resultados = []
+
+    cursor.execute("""
+        SELECT id_cliente, nombre_completo, telefono, ci_nit
+        FROM clientes
+        WHERE activo = 1 AND (
+            SIN_ACENTOS(nombre_completo) LIKE SIN_ACENTOS(?)
+            OR SIN_ACENTOS(ci_nit) LIKE SIN_ACENTOS(?)
+            OR telefono LIKE ?
+        )
+        ORDER BY nombre_completo ASC
+        LIMIT 6
+    """, (patron, patron, patron))
+    for fila in cursor.fetchall():
+        resultados.append({
+            "tipo": "Cliente",
+            "etiqueta": fila["nombre_completo"],
+            "subtitulo": fila["telefono"] or fila["ci_nit"] or "",
+            "url": url_for("editar_cliente", id_cliente=fila["id_cliente"])
+        })
+
+    cursor.execute("""
+        SELECT v.id_vehiculo, v.placa, v.marca, v.modelo, c.nombre_completo
+        FROM vehiculos v
+        INNER JOIN clientes c ON v.id_cliente = c.id_cliente
+        WHERE v.activo = 1 AND (
+            SIN_ACENTOS(v.placa) LIKE SIN_ACENTOS(?)
+            OR SIN_ACENTOS(v.vin) LIKE SIN_ACENTOS(?)
+            OR SIN_ACENTOS(v.marca) LIKE SIN_ACENTOS(?)
+            OR SIN_ACENTOS(v.modelo) LIKE SIN_ACENTOS(?)
+        )
+        ORDER BY v.placa ASC
+        LIMIT 6
+    """, (patron, patron, patron, patron))
+    for fila in cursor.fetchall():
+        resultados.append({
+            "tipo": "Vehículo",
+            "etiqueta": f"{fila['placa']} - {fila['marca']} {fila['modelo']}",
+            "subtitulo": fila["nombre_completo"] or "",
+            "url": url_for("historial_vehiculo", id_vehiculo=fila["id_vehiculo"])
+        })
+
+    cursor.execute("""
+        SELECT p.id_proforma, p.numero_proforma, p.tipo_proforma, c.nombre_completo, p.nombre_cliente_manual
+        FROM proformas p
+        LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+        WHERE p.activo = 1 AND (
+            SIN_ACENTOS(p.numero_proforma) LIKE SIN_ACENTOS(?)
+            OR SIN_ACENTOS(c.nombre_completo) LIKE SIN_ACENTOS(?)
+            OR SIN_ACENTOS(p.nombre_cliente_manual) LIKE SIN_ACENTOS(?)
+        )
+        ORDER BY p.id_proforma DESC
+        LIMIT 6
+    """, (patron, patron, patron))
+    for fila in cursor.fetchall():
+        nombre = fila["nombre_completo"] if fila["tipo_proforma"] == "FORMAL" else fila["nombre_cliente_manual"]
+        resultados.append({
+            "tipo": "Proforma",
+            "etiqueta": fila["numero_proforma"],
+            "subtitulo": nombre or "",
+            "url": url_for("ver_proforma", id_proforma=fila["id_proforma"])
+        })
+
+    cursor.execute("""
+        SELECT id_item, descripcion, marca, categoria
+        FROM inventario
+        WHERE SIN_ACENTOS(descripcion) LIKE SIN_ACENTOS(?) OR SIN_ACENTOS(marca) LIKE SIN_ACENTOS(?)
+        ORDER BY descripcion ASC
+        LIMIT 6
+    """, (patron, patron))
+    for fila in cursor.fetchall():
+        resultados.append({
+            "tipo": "Inventario",
+            "etiqueta": fila["descripcion"],
+            "subtitulo": fila["marca"] or fila["categoria"] or "",
+            "url": url_for("editar_item_inventario", id_item=fila["id_item"])
+        })
+
+    conexion.close()
+
+    return jsonify({"resultados": resultados})
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -503,14 +848,16 @@ def listar_clientes():
     cursor = conexion.cursor()
 
     if busqueda:
+        patron = f"%{busqueda}%"
         cursor.execute("""
             SELECT *
             FROM clientes
-            WHERE nombre_completo LIKE ? OR ci_nit LIKE ?
+            WHERE activo = 1
+            AND (SIN_ACENTOS(nombre_completo) LIKE SIN_ACENTOS(?) OR SIN_ACENTOS(ci_nit) LIKE SIN_ACENTOS(?))
             ORDER BY id_cliente DESC
-        """, (f"%{busqueda}%", f"%{busqueda}%"))
+        """, (patron, patron))
     else:
-        cursor.execute("SELECT * FROM clientes ORDER BY id_cliente DESC")
+        cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY id_cliente DESC")
 
     clientes = cursor.fetchall()
     conexion.close()
@@ -536,35 +883,35 @@ def nuevo_vehiculo():
         anio = limpiar_texto(request.form["anio"])
 
         if not id_cliente:
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("Debes seleccionar un cliente.", "warning")
             return render_template("nuevo_vehiculo.html", clientes=clientes)
 
         if not placa:
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("La placa es obligatoria.", "warning")
             return render_template("nuevo_vehiculo.html", clientes=clientes)
 
         if not marca or not modelo:
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("La marca y el modelo son obligatorios.", "warning")
             return render_template("nuevo_vehiculo.html", clientes=clientes)
 
         if vin and not es_vin_valido(vin):
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("El VIN no tiene un formato válido.", "warning")
             return render_template("nuevo_vehiculo.html", clientes=clientes)
 
         if anio and (not anio.isdigit() or int(anio) < 1900 or int(anio) > 2100):
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("El año no es válido.", "warning")
@@ -573,7 +920,7 @@ def nuevo_vehiculo():
         cursor.execute("SELECT id_vehiculo FROM vehiculos WHERE placa = ?", (placa,))
         vehiculo_existente = cursor.fetchone()
         if vehiculo_existente:
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("Ya existe un vehículo registrado con esa placa.", "warning")
@@ -583,7 +930,7 @@ def nuevo_vehiculo():
             cursor.execute("SELECT id_vehiculo FROM vehiculos WHERE vin = ?", (vin,))
             vin_existente = cursor.fetchone()
             if vin_existente:
-                cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+                cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
                 clientes = cursor.fetchall()
                 conexion.close()
                 flash("Ya existe un vehículo registrado con ese VIN.", "warning")
@@ -600,7 +947,7 @@ def nuevo_vehiculo():
         flash("Vehículo registrado correctamente.", "success")
         return redirect(url_for("listar_vehiculos"))
 
-    cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+    cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
     clientes = cursor.fetchall()
     conexion.close()
 
@@ -624,24 +971,25 @@ def listar_vehiculos():
         SELECT v.*, c.nombre_completo
         FROM vehiculos v
         INNER JOIN clientes c ON v.id_cliente = c.id_cliente
-        WHERE 1=1
+        WHERE v.activo = 1
     """
     parametros = []
 
     if busqueda:
-        query += " AND (v.placa LIKE ? OR v.vin LIKE ?)"
-        parametros.extend([f"%{busqueda}%", f"%{busqueda}%"])
+        query += " AND (SIN_ACENTOS(v.placa) LIKE SIN_ACENTOS(?) OR SIN_ACENTOS(v.vin) LIKE SIN_ACENTOS(?))"
+        patron = f"%{busqueda}%"
+        parametros.extend([patron, patron])
 
     if id_cliente:
         query += " AND v.id_cliente = ?"
         parametros.append(id_cliente)
 
     if modelo:
-        query += " AND v.modelo LIKE ?"
+        query += " AND SIN_ACENTOS(v.modelo) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{modelo}%")
 
     if tipo:
-        query += " AND v.tipo LIKE ?"
+        query += " AND SIN_ACENTOS(v.tipo) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{tipo}%")
 
     if anio:
@@ -649,7 +997,7 @@ def listar_vehiculos():
         parametros.append(anio)
 
     if color:
-        query += " AND v.color LIKE ?"
+        query += " AND SIN_ACENTOS(v.color) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{color}%")
 
     query += " ORDER BY v.id_vehiculo DESC"
@@ -657,7 +1005,7 @@ def listar_vehiculos():
     cursor.execute(query, parametros)
     vehiculos = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+    cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
     clientes = cursor.fetchall()
 
     conexion.close()
@@ -694,6 +1042,7 @@ def nuevo_ingreso():
                 SELECT v.*, c.nombre_completo
                 FROM vehiculos v
                 INNER JOIN clientes c ON v.id_cliente = c.id_cliente
+                WHERE v.activo = 1
                 ORDER BY v.placa ASC
             """)
             vehiculos = cursor.fetchall()
@@ -716,6 +1065,7 @@ def nuevo_ingreso():
         SELECT v.*, c.nombre_completo
         FROM vehiculos v
         INNER JOIN clientes c ON v.id_cliente = c.id_cliente
+        WHERE v.activo = 1
         ORDER BY v.placa ASC
     """)
     vehiculos = cursor.fetchall()
@@ -747,7 +1097,7 @@ def listar_ingresos():
     parametros = []
 
     if placa:
-        query += " AND v.placa LIKE ?"
+        query += " AND SIN_ACENTOS(v.placa) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{placa}%")
 
     if id_cliente:
@@ -755,7 +1105,7 @@ def listar_ingresos():
         parametros.append(id_cliente)
 
     if mecanico:
-        query += " AND i.mecanico_encargado LIKE ?"
+        query += " AND SIN_ACENTOS(i.mecanico_encargado) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{mecanico}%")
 
     if estado:
@@ -775,7 +1125,7 @@ def listar_ingresos():
     cursor.execute(query, parametros)
     ingresos = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+    cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
     clientes = cursor.fetchall()
 
     conexion.close()
@@ -847,6 +1197,32 @@ def nueva_proforma():
     else:
         nuevo_numero = "PF-0001"
 
+    def _formulario_con_datos():
+        cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
+        clientes = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT v.*, c.nombre_completo
+            FROM vehiculos v
+            INNER JOIN clientes c ON v.id_cliente = c.id_cliente
+            WHERE v.activo = 1
+            ORDER BY v.id_vehiculo DESC
+        """)
+        vehiculos = cursor.fetchall()
+
+        cursor.execute("SELECT * FROM inventario ORDER BY descripcion ASC")
+        items_inventario = cursor.fetchall()
+
+        conexion.close()
+
+        return render_template(
+            "nueva_proforma.html",
+            clientes=clientes,
+            vehiculos=vehiculos,
+            items_inventario=items_inventario,
+            nuevo_numero=nuevo_numero
+        )
+
     if request.method == "POST":
         tipo_proforma = request.form["tipo_proforma"]
         fecha = request.form["fecha"]
@@ -854,82 +1230,76 @@ def nueva_proforma():
 
         if not fecha:
             flash("La fecha es obligatoria.", "warning")
+            return _formulario_con_datos()
+
+        if tipo_proforma == "FORMAL":
+            id_cliente = request.form["id_cliente"]
+            id_vehiculo = request.form["id_vehiculo"]
+
+            if not id_cliente or not id_vehiculo:
+                flash("En la proforma formal debes seleccionar cliente y vehículo.", "warning")
+                return _formulario_con_datos()
+
+            cursor.execute("""
+                INSERT INTO proformas (
+                    numero_proforma, id_cliente, id_vehiculo, fecha,
+                    subtotal_repuestos, subtotal_mano_obra, total_general,
+                    total_literal, observaciones, pago, tipo_proforma
+                )
+                VALUES (?, ?, ?, ?, 0, 0, 0, '', ?, 'Pendiente', 'FORMAL')
+            """, (nuevo_numero, id_cliente, id_vehiculo, fecha, observaciones))
+
         else:
-            if tipo_proforma == "FORMAL":
-                id_cliente = request.form["id_cliente"]
-                id_vehiculo = request.form["id_vehiculo"]
+            nombre_cliente_manual = normalizar_nombre(request.form["nombre_cliente_manual"])
+            telefono_manual = limpiar_texto(request.form["telefono_manual"])
+            marca_manual = limpiar_texto(request.form["marca_manual"]).upper()
+            modelo_manual = limpiar_texto(request.form["modelo_manual"]).upper()
+            tipo_manual = limpiar_texto(request.form["tipo_manual"]).upper()
+            placa_manual = normalizar_placa(request.form["placa_manual"])
+            vin_manual = normalizar_vin(request.form["vin_manual"])
 
-                if not id_cliente or not id_vehiculo:
-                    flash("En la proforma formal debes seleccionar cliente y vehículo.", "warning")
-                else:
-                    cursor.execute("""
-                        INSERT INTO proformas (
-                            numero_proforma, id_cliente, id_vehiculo, fecha,
-                            subtotal_repuestos, subtotal_mano_obra, total_general,
-                            total_literal, observaciones, pago, tipo_proforma
-                        )
-                        VALUES (?, ?, ?, ?, 0, 0, 0, '', ?, 'Pendiente', 'FORMAL')
-                    """, (nuevo_numero, id_cliente, id_vehiculo, fecha, observaciones))
+            if not nombre_cliente_manual:
+                flash("En la proforma rápida debes ingresar al menos el nombre del cliente.", "warning")
+                return _formulario_con_datos()
 
-                    conexion.commit()
-                    conexion.close()
+            cursor.execute("""
+                INSERT INTO proformas (
+                    numero_proforma, id_cliente, id_vehiculo, fecha,
+                    subtotal_repuestos, subtotal_mano_obra, total_general,
+                    total_literal, observaciones, pago, tipo_proforma,
+                    nombre_cliente_manual, telefono_manual, marca_manual,
+                    modelo_manual, tipo_manual, placa_manual, vin_manual
+                )
+                VALUES (?, NULL, NULL, ?, 0, 0, 0, '', ?, 'Pendiente', 'RAPIDA',
+                        ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                nuevo_numero, fecha, observaciones,
+                nombre_cliente_manual, telefono_manual, marca_manual,
+                modelo_manual, tipo_manual, placa_manual, vin_manual
+            ))
 
-                    flash("Proforma formal registrada correctamente.", "success")
-                    return redirect(url_for("listar_proformas"))
+        id_proforma = cursor.lastrowid
 
-            else:
-                nombre_cliente_manual = normalizar_nombre(request.form["nombre_cliente_manual"])
-                telefono_manual = limpiar_texto(request.form["telefono_manual"])
-                marca_manual = limpiar_texto(request.form["marca_manual"]).upper()
-                modelo_manual = limpiar_texto(request.form["modelo_manual"]).upper()
-                tipo_manual = limpiar_texto(request.form["tipo_manual"]).upper()
-                placa_manual = normalizar_placa(request.form["placa_manual"])
-                vin_manual = normalizar_vin(request.form["vin_manual"])
+        # Repuestos y mano de obra que se hayan armado en la misma
+        # pantalla. Si algo falla, se deshace TODO (ni la proforma queda
+        # creada a medias) y se le muestra el detalle al usuario.
+        errores_items = _guardar_items_proforma(cursor, id_proforma)
 
-                if not nombre_cliente_manual:
-                    flash("En la proforma rápida debes ingresar al menos el nombre del cliente.", "warning")
-                else:
-                    cursor.execute("""
-                        INSERT INTO proformas (
-                            numero_proforma, id_cliente, id_vehiculo, fecha,
-                            subtotal_repuestos, subtotal_mano_obra, total_general,
-                            total_literal, observaciones, pago, tipo_proforma,
-                            nombre_cliente_manual, telefono_manual, marca_manual,
-                            modelo_manual, tipo_manual, placa_manual, vin_manual
-                        )
-                        VALUES (?, NULL, NULL, ?, 0, 0, 0, '', ?, 'Pendiente', 'RAPIDA',
-                                ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        nuevo_numero, fecha, observaciones,
-                        nombre_cliente_manual, telefono_manual, marca_manual,
-                        modelo_manual, tipo_manual, placa_manual, vin_manual
-                    ))
+        if errores_items:
+            conexion.rollback()
+            for error in errores_items:
+                flash(error, "warning")
+            return _formulario_con_datos()
 
-                    conexion.commit()
-                    conexion.close()
+        conexion.commit()
+        conexion.close()
 
-                    flash("Proforma rápida registrada correctamente.", "success")
-                    return redirect(url_for("listar_proformas"))
+        recalcular_totales_proforma(id_proforma)
 
-    cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
-    clientes = cursor.fetchall()
+        flash("Proforma registrada correctamente.", "success")
+        return redirect(url_for("ver_proforma", id_proforma=id_proforma))
 
-    cursor.execute("""
-        SELECT v.*, c.nombre_completo
-        FROM vehiculos v
-        INNER JOIN clientes c ON v.id_cliente = c.id_cliente
-        ORDER BY v.id_vehiculo DESC
-    """)
-    vehiculos = cursor.fetchall()
-
-    conexion.close()
-
-    return render_template(
-        "nueva_proforma.html",
-        clientes=clientes,
-        vehiculos=vehiculos,
-        nuevo_numero=nuevo_numero
-    )
+    return _formulario_con_datos()
 
 
 #LISTAR PROFORMAS
@@ -937,6 +1307,8 @@ def nueva_proforma():
 @login_requerido
 def listar_proformas():
     id_cliente = request.args.get("id_cliente", "").strip()
+    estado = request.args.get("estado", "").strip()
+    pago = request.args.get("pago", "").strip()
     fecha_desde = request.args.get("fecha_desde", "").strip()
     fecha_hasta = request.args.get("fecha_hasta", "").strip()
 
@@ -944,7 +1316,7 @@ def listar_proformas():
     cursor = conexion.cursor()
 
     query = """
-        SELECT 
+        SELECT
             p.*,
             c.nombre_completo,
             v.placa,
@@ -953,13 +1325,21 @@ def listar_proformas():
         FROM proformas p
         LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
         LEFT JOIN vehiculos v ON p.id_vehiculo = v.id_vehiculo
-        WHERE 1=1
+        WHERE p.activo = 1
     """
     parametros = []
 
     if id_cliente:
         query += " AND p.id_cliente = ?"
         parametros.append(id_cliente)
+
+    if estado:
+        query += " AND p.estado = ?"
+        parametros.append(estado)
+
+    if pago:
+        query += " AND p.pago = ?"
+        parametros.append(pago)
 
     if fecha_desde:
         query += " AND p.fecha >= ?"
@@ -974,7 +1354,7 @@ def listar_proformas():
     cursor.execute(query, parametros)
     proformas = cursor.fetchall()
 
-    cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+    cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
     clientes = cursor.fetchall()
 
     conexion.close()
@@ -984,6 +1364,8 @@ def listar_proformas():
         proformas=proformas,
         clientes=clientes,
         id_cliente=id_cliente,
+        estado=estado,
+        pago=pago,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta
     )
@@ -1127,7 +1509,11 @@ def agregar_detalle_proforma(id_proforma):
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (id_proforma, tipo_item, descripcion, cantidad, precio_unitario, subtotal, id_item))
 
-        if modo == "inventario":
+        # El stock del repuesto de inventario recién se descuenta cuando se
+        # emite el recibo (ahí se concreta la compra). Si la proforma ya
+        # tiene el stock descontado (porque ya se emitió un recibo antes),
+        # este nuevo repuesto también se descuenta de una vez.
+        if modo == "inventario" and proforma_actual["stock_descontado"]:
             nuevo_stock = item_inventario["cantidad"] - cantidad
             cursor.execute("UPDATE inventario SET cantidad = ? WHERE id_item = ?", (nuevo_stock, id_item))
             cursor.execute("""
@@ -1239,7 +1625,7 @@ def editar_vehiculo(id_vehiculo):
         if not id_cliente or not placa or not marca or not modelo:
             cursor.execute("SELECT * FROM vehiculos WHERE id_vehiculo = ?", (id_vehiculo,))
             vehiculo = cursor.fetchone()
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("Cliente, placa, marca y modelo son obligatorios.", "warning")
@@ -1248,7 +1634,7 @@ def editar_vehiculo(id_vehiculo):
         if vin and not es_vin_valido(vin):
             cursor.execute("SELECT * FROM vehiculos WHERE id_vehiculo = ?", (id_vehiculo,))
             vehiculo = cursor.fetchone()
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("El VIN no tiene un formato válido.", "warning")
@@ -1257,7 +1643,7 @@ def editar_vehiculo(id_vehiculo):
         if anio and (not anio.isdigit() or int(anio) < 1900 or int(anio) > 2100):
             cursor.execute("SELECT * FROM vehiculos WHERE id_vehiculo = ?", (id_vehiculo,))
             vehiculo = cursor.fetchone()
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("El año no es válido.", "warning")
@@ -1273,7 +1659,7 @@ def editar_vehiculo(id_vehiculo):
         if vehiculo_existente:
             cursor.execute("SELECT * FROM vehiculos WHERE id_vehiculo = ?", (id_vehiculo,))
             vehiculo = cursor.fetchone()
-            cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+            cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
             clientes = cursor.fetchall()
             conexion.close()
             flash("No puedes guardar esa placa porque ya pertenece a otro vehículo.", "warning")
@@ -1290,7 +1676,7 @@ def editar_vehiculo(id_vehiculo):
             if vin_existente:
                 cursor.execute("SELECT * FROM vehiculos WHERE id_vehiculo = ?", (id_vehiculo,))
                 vehiculo = cursor.fetchone()
-                cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+                cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
                 clientes = cursor.fetchall()
                 conexion.close()
                 flash("No puedes guardar ese VIN porque ya pertenece a otro vehículo.", "warning")
@@ -1311,17 +1697,47 @@ def editar_vehiculo(id_vehiculo):
     cursor.execute("SELECT * FROM vehiculos WHERE id_vehiculo = ?", (id_vehiculo,))
     vehiculo = cursor.fetchone()
 
-    cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+    cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
     clientes = cursor.fetchall()
 
     conexion.close()
     return render_template("editar_vehiculo.html", vehiculo=vehiculo, clientes=clientes)
 
-#ELIMINAR VEHICULO
+#ELIMINAR VEHICULO (baja lógica: se manda a la papelera, se puede restaurar)
 @app.route("/vehiculos/<int:id_vehiculo>/eliminar", methods=["POST"])
 @login_requerido
 @roles_requeridos("ADMIN")
 def eliminar_vehiculo(id_vehiculo):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("UPDATE vehiculos SET activo = 0 WHERE id_vehiculo = ?", (id_vehiculo,))
+    conexion.commit()
+    conexion.close()
+
+    flash("Vehículo movido a la papelera. Podés restaurarlo desde ahí si fue un error.", "success")
+    return redirect(url_for("listar_vehiculos"))
+
+#RESTAURAR VEHICULO
+@app.route("/vehiculos/<int:id_vehiculo>/restaurar", methods=["POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def restaurar_vehiculo(id_vehiculo):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("UPDATE vehiculos SET activo = 1 WHERE id_vehiculo = ?", (id_vehiculo,))
+    conexion.commit()
+    conexion.close()
+
+    flash("Vehículo restaurado correctamente.", "success")
+    return redirect(url_for("papelera"))
+
+#ELIMINAR VEHICULO DEFINITIVAMENTE (desde la papelera, sin vuelta atrás)
+@app.route("/vehiculos/<int:id_vehiculo>/eliminar-definitivo", methods=["POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def eliminar_vehiculo_definitivo(id_vehiculo):
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -1333,14 +1749,15 @@ def eliminar_vehiculo(id_vehiculo):
 
     if cantidad_ingresos > 0 or cantidad_proformas > 0:
         conexion.close()
-        return "No se puede eliminar el vehículo porque tiene ingresos o proformas asociadas."
+        flash("No se puede eliminar definitivamente: el vehículo tiene ingresos o proformas asociadas.", "warning")
+        return redirect(url_for("papelera"))
 
     cursor.execute("DELETE FROM vehiculos WHERE id_vehiculo = ?", (id_vehiculo,))
     conexion.commit()
     conexion.close()
 
-    flash("Vehiculo eliminado correctamente.", "success")
-    return redirect(url_for("listar_vehiculos"))
+    flash("Vehículo eliminado definitivamente.", "success")
+    return redirect(url_for("papelera"))
 
 #ACCIONES CLIENTES
 #editar cliente
@@ -1429,11 +1846,41 @@ def editar_cliente(id_cliente):
 
     return render_template("editar_cliente.html", cliente=cliente)
 
-#eliminar cliente
+#eliminar cliente (baja lógica: se manda a la papelera, se puede restaurar)
 @app.route("/clientes/<int:id_cliente>/eliminar", methods=["POST"])
 @login_requerido
 @roles_requeridos("ADMIN")
 def eliminar_cliente(id_cliente):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("UPDATE clientes SET activo = 0 WHERE id_cliente = ?", (id_cliente,))
+    conexion.commit()
+    conexion.close()
+
+    flash("Cliente movido a la papelera. Podés restaurarlo desde ahí si fue un error.", "success")
+    return redirect(url_for("listar_clientes"))
+
+#restaurar cliente
+@app.route("/clientes/<int:id_cliente>/restaurar", methods=["POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def restaurar_cliente(id_cliente):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("UPDATE clientes SET activo = 1 WHERE id_cliente = ?", (id_cliente,))
+    conexion.commit()
+    conexion.close()
+
+    flash("Cliente restaurado correctamente.", "success")
+    return redirect(url_for("papelera"))
+
+#eliminar cliente definitivamente (desde la papelera, sin vuelta atrás)
+@app.route("/clientes/<int:id_cliente>/eliminar-definitivo", methods=["POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def eliminar_cliente_definitivo(id_cliente):
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -1442,14 +1889,15 @@ def eliminar_cliente(id_cliente):
 
     if cantidad_vehiculos > 0:
         conexion.close()
-        return "No se puede eliminar el cliente porque tiene vehículos asociados."
+        flash("No se puede eliminar definitivamente: el cliente tiene vehículos asociados.", "warning")
+        return redirect(url_for("papelera"))
 
     cursor.execute("DELETE FROM clientes WHERE id_cliente = ?", (id_cliente,))
     conexion.commit()
     conexion.close()
 
-    flash("Cliente eliminado correctamente.", "success")
-    return redirect(url_for("listar_clientes"))
+    flash("Cliente eliminado definitivamente.", "success")
+    return redirect(url_for("papelera"))
 
 
 #ACCIONES INGRESOS
@@ -1487,6 +1935,7 @@ def editar_ingreso(id_ingreso):
         SELECT v.*, c.nombre_completo
         FROM vehiculos v
         INNER JOIN clientes c ON v.id_cliente = c.id_cliente
+        WHERE v.activo = 1
         ORDER BY v.placa ASC
     """)
     vehiculos = cursor.fetchall()
@@ -1539,13 +1988,14 @@ def editar_proforma(id_proforma):
     cursor.execute("SELECT * FROM proformas WHERE id_proforma = ?", (id_proforma,))
     proforma = cursor.fetchone()
 
-    cursor.execute("SELECT * FROM clientes ORDER BY nombre_completo ASC")
+    cursor.execute("SELECT * FROM clientes WHERE activo = 1 ORDER BY nombre_completo ASC")
     clientes = cursor.fetchall()
 
     cursor.execute("""
         SELECT v.*, c.nombre_completo
         FROM vehiculos v
         INNER JOIN clientes c ON v.id_cliente = c.id_cliente
+        WHERE v.activo = 1
         ORDER BY v.id_vehiculo DESC
     """)
     vehiculos = cursor.fetchall()
@@ -1554,45 +2004,91 @@ def editar_proforma(id_proforma):
 
     return render_template("editar_proforma.html", proforma=proforma, clientes=clientes, vehiculos=vehiculos)
 
-#eliminar proforma
+#eliminar proforma (baja lógica: se manda a la papelera, se puede restaurar)
 @app.route("/proformas/<int:id_proforma>/eliminar", methods=["POST"])
-@login_requerido  
-@roles_requeridos("ADMIN")  
+@login_requerido
+@roles_requeridos("ADMIN")
 def eliminar_proforma(id_proforma):
     conexion = conectar_db()
     cursor = conexion.cursor()
 
-    cursor.execute("""
-        SELECT id_item, cantidad FROM detalle_proforma
-        WHERE id_proforma = ? AND id_item IS NOT NULL
-    """, (id_proforma,))
-    repuestos_inventario = cursor.fetchall()
+    cursor.execute("UPDATE proformas SET activo = 0 WHERE id_proforma = ?", (id_proforma,))
+    conexion.commit()
+    conexion.close()
 
-    for repuesto in repuestos_inventario:
-        cursor.execute("UPDATE inventario SET cantidad = cantidad + ? WHERE id_item = ?",
-                       (repuesto["cantidad"], repuesto["id_item"]))
+    flash("Proforma movida a la papelera. Podés restaurarla desde ahí si fue un error.", "success")
+
+    return redirect(url_for("listar_proformas"))
+
+#restaurar proforma
+@app.route("/proformas/<int:id_proforma>/restaurar", methods=["POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def restaurar_proforma(id_proforma):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("UPDATE proformas SET activo = 1 WHERE id_proforma = ?", (id_proforma,))
+    conexion.commit()
+    conexion.close()
+
+    flash("Proforma restaurada correctamente.", "success")
+    return redirect(url_for("papelera"))
+
+#eliminar proforma definitivamente (desde la papelera, sin vuelta atrás)
+@app.route("/proformas/<int:id_proforma>/eliminar-definitivo", methods=["POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def eliminar_proforma_definitivo(id_proforma):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("SELECT stock_descontado FROM proformas WHERE id_proforma = ?", (id_proforma,))
+    fila_proforma = cursor.fetchone()
+
+    if fila_proforma is None:
+        conexion.close()
+        flash("La proforma no existe.", "warning")
+        return redirect(url_for("papelera"))
+
+    stock_descontado = bool(fila_proforma["stock_descontado"])
+
+    # Solo se repone el stock si ya se había descontado (es decir, si la
+    # proforma ya tenía un recibo emitido). Si era solo una cotización, el
+    # inventario nunca se llegó a mover.
+    if stock_descontado:
         cursor.execute("""
-            INSERT INTO movimientos_inventario (
-                id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
-            )
-            VALUES (?, ?, 'ENTRADA', ?, ?, ?)
-        """, (
-            repuesto["id_item"],
-            date.today().isoformat(),
-            repuesto["cantidad"],
-            "Reverso por eliminación de proforma",
-            str(id_proforma)
-        ))
+            SELECT id_item, cantidad FROM detalle_proforma
+            WHERE id_proforma = ? AND id_item IS NOT NULL
+        """, (id_proforma,))
+        repuestos_inventario = cursor.fetchall()
 
+        for repuesto in repuestos_inventario:
+            cursor.execute("UPDATE inventario SET cantidad = cantidad + ? WHERE id_item = ?",
+                           (repuesto["cantidad"], repuesto["id_item"]))
+            cursor.execute("""
+                INSERT INTO movimientos_inventario (
+                    id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
+                )
+                VALUES (?, ?, 'ENTRADA', ?, ?, ?)
+            """, (
+                repuesto["id_item"],
+                date.today().isoformat(),
+                repuesto["cantidad"],
+                "Reverso por eliminación definitiva de proforma",
+                str(id_proforma)
+            ))
+
+    cursor.execute("DELETE FROM recibos WHERE id_proforma = ?", (id_proforma,))
     cursor.execute("DELETE FROM detalle_proforma WHERE id_proforma = ?", (id_proforma,))
     cursor.execute("DELETE FROM proformas WHERE id_proforma = ?", (id_proforma,))
 
     conexion.commit()
     conexion.close()
 
-    flash("Proforma eliminada correctamente.", "success")
+    flash("Proforma eliminada definitivamente.", "success")
 
-    return redirect(url_for("listar_proformas"))
+    return redirect(url_for("papelera"))
 
 #ACCIONES DETALLE PROFORMA
 #editar detalle proforma
@@ -1614,6 +2110,10 @@ def editar_detalle_proforma(id_detalle):
     if detalle["id_item"]:
         cursor.execute("SELECT * FROM inventario WHERE id_item = ?", (detalle["id_item"],))
         item_inventario = cursor.fetchone()
+
+    cursor.execute("SELECT stock_descontado FROM proformas WHERE id_proforma = ?", (detalle["id_proforma"],))
+    fila_proforma = cursor.fetchone()
+    stock_descontado = bool(fila_proforma["stock_descontado"]) if fila_proforma else False
 
     if request.method == "POST":
         cantidad_texto = limpiar_texto(request.form.get("cantidad", ""))
@@ -1645,29 +2145,37 @@ def editar_detalle_proforma(id_detalle):
 
         if item_inventario is not None:
             # Repuesto vinculado al inventario: la descripción se mantiene
-            # ligada al ítem y el stock se ajusta según el cambio de cantidad.
-            delta = cantidad - detalle["cantidad"]
+            # ligada al ítem. El stock solo se toca acá si esta proforma ya
+            # tiene el stock descontado (o sea, ya se emitió un recibo); si
+            # todavía es solo una cotización, la cantidad se guarda pero el
+            # inventario no se mueve hasta que se genere el recibo.
+            if stock_descontado:
+                delta = cantidad - detalle["cantidad"]
 
-            if delta > item_inventario["cantidad"]:
-                flash(f"Stock insuficiente para este cambio. Disponible: {item_inventario['cantidad']}.", "warning")
+                if delta > item_inventario["cantidad"]:
+                    flash(f"Stock insuficiente para este cambio. Disponible: {item_inventario['cantidad']}.", "warning")
+                    conexion.close()
+                    return render_template("editar_detalle_proforma.html", detalle=detalle, item_inventario=item_inventario)
+
+                if delta != 0:
+                    nuevo_stock = item_inventario["cantidad"] - delta
+                    cursor.execute("UPDATE inventario SET cantidad = ? WHERE id_item = ?", (nuevo_stock, item_inventario["id_item"]))
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario (
+                            id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
+                        )
+                        VALUES (?, ?, 'AJUSTE', ?, ?, ?)
+                    """, (
+                        item_inventario["id_item"],
+                        date.today().isoformat(),
+                        -delta,
+                        "Ajuste por edición de detalle de proforma",
+                        str(detalle["id_proforma"])
+                    ))
+            elif cantidad > item_inventario["cantidad"]:
+                flash(f"Stock insuficiente. Disponible: {item_inventario['cantidad']}.", "warning")
                 conexion.close()
                 return render_template("editar_detalle_proforma.html", detalle=detalle, item_inventario=item_inventario)
-
-            if delta != 0:
-                nuevo_stock = item_inventario["cantidad"] - delta
-                cursor.execute("UPDATE inventario SET cantidad = ? WHERE id_item = ?", (nuevo_stock, item_inventario["id_item"]))
-                cursor.execute("""
-                    INSERT INTO movimientos_inventario (
-                        id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
-                    )
-                    VALUES (?, ?, 'AJUSTE', ?, ?, ?)
-                """, (
-                    item_inventario["id_item"],
-                    date.today().isoformat(),
-                    -delta,
-                    "Ajuste por edición de detalle de proforma",
-                    str(detalle["id_proforma"])
-                ))
 
             tipo_item = "REPUESTO"
             descripcion = item_inventario["descripcion"]
@@ -1720,7 +2228,14 @@ def eliminar_detalle_proforma(id_detalle):
 
     id_proforma = detalle["id_proforma"]
 
-    if detalle["id_item"]:
+    cursor.execute("SELECT stock_descontado FROM proformas WHERE id_proforma = ?", (id_proforma,))
+    fila_proforma = cursor.fetchone()
+    stock_descontado = bool(fila_proforma["stock_descontado"]) if fila_proforma else False
+
+    # Solo se repone el stock si ya se había descontado (o sea, si ya se
+    # emitió un recibo para esta proforma). Si todavía es una cotización,
+    # el inventario nunca se tocó.
+    if detalle["id_item"] and stock_descontado:
         cursor.execute("UPDATE inventario SET cantidad = cantidad + ? WHERE id_item = ?",
                        (detalle["cantidad"], detalle["id_item"]))
         cursor.execute("""
@@ -1753,6 +2268,8 @@ def listar_inventario():
     busqueda = request.args.get("busqueda", "").strip()
     categoria = request.args.get("categoria", "").strip()
     marca = request.args.get("marca", "").strip()
+    estado = request.args.get("estado", "").strip()
+    disponibilidad = request.args.get("disponibilidad", "").strip()
 
     conexion = conectar_db()
     cursor = conexion.cursor()
@@ -1765,16 +2282,25 @@ def listar_inventario():
     parametros = []
 
     if busqueda:
-        query += " AND descripcion LIKE ?"
+        query += " AND SIN_ACENTOS(descripcion) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{busqueda}%")
 
     if categoria:
-        query += " AND categoria LIKE ?"
+        query += " AND SIN_ACENTOS(categoria) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{categoria}%")
 
     if marca:
-        query += " AND marca LIKE ?"
+        query += " AND SIN_ACENTOS(marca) LIKE SIN_ACENTOS(?)"
         parametros.append(f"%{marca}%")
+
+    if estado:
+        query += " AND estado = ?"
+        parametros.append(estado)
+
+    if disponibilidad == "disponible":
+        query += " AND cantidad > 0"
+    elif disponibilidad == "agotado":
+        query += " AND cantidad = 0"
 
     query += " ORDER BY id_item DESC"
 
@@ -1788,7 +2314,9 @@ def listar_inventario():
         items=items,
         busqueda=busqueda,
         categoria=categoria,
-        marca=marca
+        marca=marca,
+        estado=estado,
+        disponibilidad=disponibilidad
     )
 #Nuevo item inventario
 @app.route("/inventario/nuevo", methods=["GET", "POST"])
@@ -2099,6 +2627,466 @@ def nuevo_movimiento_inventario(id_item):
     conexion.close()
     return render_template("nuevo_movimiento_inventario.html", item=item)
 
+
+#################
+#GASTOS (compras de repuestos y otros gastos del taller, para el reporte de caja)
+CATEGORIAS_GASTO = ["Compra de repuestos", "Sueldos", "Alquiler", "Servicios", "Otro"]
+
+#LISTAR GASTOS
+@app.route("/gastos")
+@login_requerido
+@roles_requeridos("ADMIN")
+def listar_gastos():
+    categoria = request.args.get("categoria", "").strip()
+    fecha_desde = request.args.get("fecha_desde", "").strip()
+    fecha_hasta = request.args.get("fecha_hasta", "").strip()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    query = """
+        SELECT g.*, i.descripcion AS descripcion_item
+        FROM gastos g
+        LEFT JOIN inventario i ON g.id_item = i.id_item
+        WHERE 1=1
+    """
+    parametros = []
+
+    if categoria:
+        query += " AND g.categoria = ?"
+        parametros.append(categoria)
+
+    if fecha_desde:
+        query += " AND g.fecha >= ?"
+        parametros.append(fecha_desde)
+
+    if fecha_hasta:
+        query += " AND g.fecha <= ?"
+        parametros.append(fecha_hasta)
+
+    query += " ORDER BY g.fecha DESC, g.id_gasto DESC"
+
+    cursor.execute(query, parametros)
+    gastos = cursor.fetchall()
+
+    conexion.close()
+
+    return render_template(
+        "gastos.html",
+        gastos=gastos,
+        categorias=CATEGORIAS_GASTO,
+        categoria=categoria,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta
+    )
+
+#NUEVO GASTO
+@app.route("/gastos/nuevo", methods=["GET", "POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def nuevo_gasto():
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    def _formulario_gasto():
+        cursor.execute("SELECT * FROM inventario ORDER BY descripcion ASC")
+        items_inventario = cursor.fetchall()
+        conexion.close()
+        return render_template("nuevo_gasto.html", categorias=CATEGORIAS_GASTO, items_inventario=items_inventario)
+
+    if request.method == "POST":
+        fecha = request.form.get("fecha", "").strip()
+        categoria = request.form.get("categoria", "").strip()
+        descripcion = limpiar_texto(request.form.get("descripcion", ""))
+        monto_texto = limpiar_texto(request.form.get("monto", ""))
+
+        if not fecha or categoria not in CATEGORIAS_GASTO:
+            flash("Completá la fecha y elegí una categoría válida.", "warning")
+            return _formulario_gasto()
+
+        try:
+            monto = float(monto_texto)
+        except ValueError:
+            flash("El monto no es válido.", "warning")
+            return _formulario_gasto()
+
+        if monto <= 0:
+            flash("El monto debe ser mayor a cero.", "warning")
+            return _formulario_gasto()
+
+        id_item = None
+        cantidad = None
+
+        if categoria == "Compra de repuestos":
+            id_item_texto = request.form.get("id_item", "").strip()
+            cantidad_texto = limpiar_texto(request.form.get("cantidad", ""))
+
+            if not id_item_texto:
+                flash("Elegí qué repuesto compraste.", "warning")
+                return _formulario_gasto()
+
+            try:
+                id_item = int(id_item_texto)
+                cantidad = int(cantidad_texto)
+            except ValueError:
+                flash("La cantidad no es válida.", "warning")
+                return _formulario_gasto()
+
+            if cantidad <= 0:
+                flash("La cantidad debe ser mayor a cero.", "warning")
+                return _formulario_gasto()
+
+            cursor.execute("SELECT * FROM inventario WHERE id_item = ?", (id_item,))
+            item_inventario = cursor.fetchone()
+
+            if item_inventario is None:
+                flash("El repuesto seleccionado ya no existe.", "warning")
+                return _formulario_gasto()
+        else:
+            descripcion = descripcion or categoria
+            if not descripcion:
+                flash("Escribí una breve descripción del gasto.", "warning")
+                return _formulario_gasto()
+
+        cursor.execute("""
+            INSERT INTO gastos (fecha, categoria, descripcion, monto, id_item, cantidad)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (fecha, categoria, descripcion, monto, id_item, cantidad))
+        id_gasto = cursor.lastrowid
+
+        # Si es compra de repuestos, esto además repone el stock y
+        # actualiza el precio de compra del ítem con el costo real pagado.
+        if categoria == "Compra de repuestos":
+            nuevo_stock = item_inventario["cantidad"] + cantidad
+            costo_unitario = round(monto / cantidad, 2)
+
+            cursor.execute("UPDATE inventario SET cantidad = ?, precio_compra = ? WHERE id_item = ?",
+                           (nuevo_stock, costo_unitario, id_item))
+            cursor.execute("""
+                INSERT INTO movimientos_inventario (
+                    id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
+                )
+                VALUES (?, ?, 'ENTRADA', ?, ?, ?)
+            """, (id_item, fecha, cantidad, "Compra de repuestos (gasto registrado)", f"Gasto #{id_gasto}"))
+
+        conexion.commit()
+        conexion.close()
+
+        flash("Gasto registrado correctamente.", "success")
+        return redirect(url_for("listar_gastos"))
+
+    return _formulario_gasto()
+
+#EDITAR GASTO
+@app.route("/gastos/<int:id_gasto>/editar", methods=["GET", "POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def editar_gasto(id_gasto):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT g.*, i.descripcion AS descripcion_item
+        FROM gastos g
+        LEFT JOIN inventario i ON g.id_item = i.id_item
+        WHERE g.id_gasto = ?
+    """, (id_gasto,))
+    gasto = cursor.fetchone()
+
+    if gasto is None:
+        conexion.close()
+        flash("El gasto no existe.", "warning")
+        return redirect(url_for("listar_gastos"))
+
+    if request.method == "POST":
+        fecha = request.form.get("fecha", "").strip()
+        descripcion = limpiar_texto(request.form.get("descripcion", ""))
+        monto_texto = limpiar_texto(request.form.get("monto", ""))
+
+        if not fecha:
+            flash("La fecha es obligatoria.", "warning")
+            conexion.close()
+            return render_template("editar_gasto.html", gasto=gasto)
+
+        try:
+            monto = float(monto_texto)
+        except ValueError:
+            flash("El monto no es válido.", "warning")
+            conexion.close()
+            return render_template("editar_gasto.html", gasto=gasto)
+
+        if monto <= 0:
+            flash("El monto debe ser mayor a cero.", "warning")
+            conexion.close()
+            return render_template("editar_gasto.html", gasto=gasto)
+
+        cursor.execute("""
+            UPDATE gastos SET fecha = ?, descripcion = ?, monto = ? WHERE id_gasto = ?
+        """, (fecha, descripcion, monto, id_gasto))
+
+        conexion.commit()
+        conexion.close()
+
+        flash("Gasto actualizado correctamente.", "success")
+        return redirect(url_for("listar_gastos"))
+
+    conexion.close()
+    return render_template("editar_gasto.html", gasto=gasto)
+
+#ELIMINAR GASTO
+@app.route("/gastos/<int:id_gasto>/eliminar", methods=["POST"])
+@login_requerido
+@roles_requeridos("ADMIN")
+def eliminar_gasto(id_gasto):
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("SELECT * FROM gastos WHERE id_gasto = ?", (id_gasto,))
+    gasto = cursor.fetchone()
+
+    if gasto is None:
+        conexion.close()
+        flash("El gasto no existe.", "warning")
+        return redirect(url_for("listar_gastos"))
+
+    # Si era una compra de repuestos, hay que devolver el stock que había
+    # sumado (a menos que ya se haya usado, en cuyo caso no se puede).
+    if gasto["categoria"] == "Compra de repuestos" and gasto["id_item"] and gasto["cantidad"]:
+        cursor.execute("SELECT * FROM inventario WHERE id_item = ?", (gasto["id_item"],))
+        item_inventario = cursor.fetchone()
+
+        if item_inventario is not None:
+            if item_inventario["cantidad"] < gasto["cantidad"]:
+                conexion.close()
+                flash("No se puede eliminar: parte de ese stock ya se usó, el inventario quedaría negativo.", "warning")
+                return redirect(url_for("listar_gastos"))
+
+            cursor.execute("UPDATE inventario SET cantidad = cantidad - ? WHERE id_item = ?",
+                           (gasto["cantidad"], gasto["id_item"]))
+            cursor.execute("""
+                INSERT INTO movimientos_inventario (
+                    id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
+                )
+                VALUES (?, ?, 'AJUSTE', ?, ?, ?)
+            """, (
+                gasto["id_item"], date.today().isoformat(), -gasto["cantidad"],
+                "Reverso por eliminación de gasto de compra", f"Gasto #{id_gasto}"
+            ))
+
+    cursor.execute("DELETE FROM gastos WHERE id_gasto = ?", (id_gasto,))
+    conexion.commit()
+    conexion.close()
+
+    flash("Gasto eliminado correctamente.", "success")
+    return redirect(url_for("listar_gastos"))
+
+
+#################
+#REPORTES
+
+def _rango_fechas_por_defecto():
+    """Si no se especifica un rango, usa el mes actual (del día 1 a hoy)."""
+    fecha_desde = request.args.get("fecha_desde", "").strip()
+    fecha_hasta = request.args.get("fecha_hasta", "").strip()
+
+    if not fecha_desde and not fecha_hasta:
+        hoy = date.today()
+        fecha_desde = hoy.replace(day=1).isoformat()
+        fecha_hasta = hoy.isoformat()
+
+    return fecha_desde, fecha_hasta
+
+def _datos_reporte_caja(fecha_desde, fecha_hasta):
+    """Trae las entradas (recibos) y salidas (gastos) de un período, ya
+    con los totales calculados. La usan tanto la pantalla del reporte de
+    caja como su exportación a PDF, para no duplicar la consulta."""
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    query_entradas = """
+        SELECT r.id_recibo, r.numero_recibo, r.fecha, r.monto_recibido, r.concepto,
+               p.numero_proforma, p.tipo_proforma, c.nombre_completo, p.nombre_cliente_manual
+        FROM recibos r
+        INNER JOIN proformas p ON r.id_proforma = p.id_proforma
+        LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+        WHERE 1=1
+    """
+    parametros = []
+
+    if fecha_desde:
+        query_entradas += " AND r.fecha >= ?"
+        parametros.append(fecha_desde)
+
+    if fecha_hasta:
+        query_entradas += " AND r.fecha <= ?"
+        parametros.append(fecha_hasta)
+
+    query_entradas += " ORDER BY r.fecha ASC, r.id_recibo ASC"
+
+    cursor.execute(query_entradas, parametros)
+    entradas = cursor.fetchall()
+
+    query_salidas = "SELECT * FROM gastos WHERE 1=1"
+    parametros2 = []
+
+    if fecha_desde:
+        query_salidas += " AND fecha >= ?"
+        parametros2.append(fecha_desde)
+
+    if fecha_hasta:
+        query_salidas += " AND fecha <= ?"
+        parametros2.append(fecha_hasta)
+
+    query_salidas += " ORDER BY fecha ASC, id_gasto ASC"
+
+    cursor.execute(query_salidas, parametros2)
+    salidas = cursor.fetchall()
+
+    conexion.close()
+
+    total_entradas = sum(fila["monto_recibido"] or 0 for fila in entradas)
+    total_salidas = sum(fila["monto"] or 0 for fila in salidas)
+
+    return {
+        "entradas": entradas,
+        "salidas": salidas,
+        "total_entradas": total_entradas,
+        "total_salidas": total_salidas,
+        "resultado_neto": total_entradas - total_salidas,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta
+    }
+
+#REPORTE DE CAJA (flujo de caja: entradas por recibos, salidas por gastos)
+@app.route("/reportes/caja")
+@login_requerido
+@roles_requeridos("ADMIN")
+def reporte_caja():
+    fecha_desde, fecha_hasta = _rango_fechas_por_defecto()
+    datos = _datos_reporte_caja(fecha_desde, fecha_hasta)
+    return render_template("reporte_caja.html", **datos)
+
+#EXPORTAR REPORTE DE CAJA A PDF
+@app.route("/reportes/caja/pdf")
+@login_requerido
+@roles_requeridos("ADMIN")
+def exportar_reporte_caja_pdf():
+    fecha_desde, fecha_hasta = _rango_fechas_por_defecto()
+    datos = _datos_reporte_caja(fecha_desde, fecha_hasta)
+    datos["fecha_generacion"] = date.today().isoformat()
+
+    html = render_template("reporte_caja_pdf.html", **datos)
+    pdf = convertir_html_a_pdf(html)
+
+    if pdf is None:
+        return "Error al generar el PDF"
+
+    respuesta = make_response(pdf)
+    respuesta.headers["Content-Type"] = "application/pdf"
+    respuesta.headers["Content-Disposition"] = (
+        f"inline; filename=reporte_caja_{fecha_desde}_a_{fecha_hasta}.pdf"
+    )
+    return respuesta
+
+def _datos_reporte_ganancia_repuestos(fecha_desde, fecha_hasta):
+    """Trae los repuestos de inventario ya vendidos (con recibo emitido)
+    en un período, con costo/venta/ganancia calculados. La usan tanto la
+    pantalla del reporte como su exportación a PDF."""
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    # Solo cuenta repuestos de proformas que ya se "concretaron" (con
+    # recibo emitido): antes de eso son solo una cotización, no una venta.
+    query = """
+        SELECT dp.descripcion, dp.cantidad, dp.precio_unitario, dp.subtotal,
+               i.precio_compra, p.numero_proforma, p.fecha
+        FROM detalle_proforma dp
+        INNER JOIN proformas p ON dp.id_proforma = p.id_proforma
+        INNER JOIN inventario i ON dp.id_item = i.id_item
+        WHERE dp.id_item IS NOT NULL AND p.stock_descontado = 1
+    """
+    parametros = []
+
+    if fecha_desde:
+        query += " AND p.fecha >= ?"
+        parametros.append(fecha_desde)
+
+    if fecha_hasta:
+        query += " AND p.fecha <= ?"
+        parametros.append(fecha_hasta)
+
+    query += " ORDER BY p.fecha ASC"
+
+    cursor.execute(query, parametros)
+    filas = cursor.fetchall()
+
+    conexion.close()
+
+    items = []
+    total_venta = 0.0
+    total_costo = 0.0
+
+    for fila in filas:
+        precio_compra = fila["precio_compra"] or 0
+        costo_total = precio_compra * fila["cantidad"]
+        venta_total = fila["subtotal"]
+
+        total_venta += venta_total
+        total_costo += costo_total
+
+        items.append({
+            "descripcion": fila["descripcion"],
+            "cantidad": fila["cantidad"],
+            "precio_venta": fila["precio_unitario"],
+            "precio_compra": precio_compra,
+            "costo_total": costo_total,
+            "venta_total": venta_total,
+            "ganancia": venta_total - costo_total,
+            "numero_proforma": fila["numero_proforma"],
+            "fecha": fila["fecha"]
+        })
+
+    return {
+        "items": items,
+        "total_venta": total_venta,
+        "total_costo": total_costo,
+        "total_ganancia": total_venta - total_costo,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta
+    }
+
+#REPORTE DE GANANCIA DE REPUESTOS
+@app.route("/reportes/ganancia-repuestos")
+@login_requerido
+@roles_requeridos("ADMIN")
+def reporte_ganancia_repuestos():
+    fecha_desde, fecha_hasta = _rango_fechas_por_defecto()
+    datos = _datos_reporte_ganancia_repuestos(fecha_desde, fecha_hasta)
+    return render_template("reporte_ganancia_repuestos.html", **datos)
+
+#EXPORTAR REPORTE DE GANANCIA DE REPUESTOS A PDF
+@app.route("/reportes/ganancia-repuestos/pdf")
+@login_requerido
+@roles_requeridos("ADMIN")
+def exportar_reporte_ganancia_repuestos_pdf():
+    fecha_desde, fecha_hasta = _rango_fechas_por_defecto()
+    datos = _datos_reporte_ganancia_repuestos(fecha_desde, fecha_hasta)
+    datos["fecha_generacion"] = date.today().isoformat()
+
+    html = render_template("reporte_ganancia_repuestos_pdf.html", **datos)
+    pdf = convertir_html_a_pdf(html)
+
+    if pdf is None:
+        return "Error al generar el PDF"
+
+    respuesta = make_response(pdf)
+    respuesta.headers["Content-Type"] = "application/pdf"
+    respuesta.headers["Content-Disposition"] = (
+        f"inline; filename=ganancia_repuestos_{fecha_desde}_a_{fecha_hasta}.pdf"
+    )
+    return respuesta
+
+
 #RECIBOS
 @app.route("/recibos")
 @login_requerido
@@ -2191,6 +3179,29 @@ def nuevo_recibo(id_proforma):
         ci_recibe = request.form["ci_recibe"]
         recibi_conforme = request.form["recibi_conforme"]
 
+        # El repuesto se descuenta del inventario recién acá, al emitir el
+        # recibo, porque es el momento en que la compra se concreta. Solo
+        # se hace una vez por proforma (en el primer recibo que se emita);
+        # si ya estaba descontado (por un recibo anterior) no se vuelve a tocar.
+        primer_recibo = not proforma["stock_descontado"]
+        detalles_inventario = []
+
+        if primer_recibo:
+            cursor.execute("""
+                SELECT dp.id_detalle, dp.id_item, dp.cantidad, i.cantidad AS stock_actual, i.descripcion AS descripcion_item
+                FROM detalle_proforma dp
+                INNER JOIN inventario i ON dp.id_item = i.id_item
+                WHERE dp.id_proforma = ? AND dp.tipo_item = 'REPUESTO' AND dp.id_item IS NOT NULL
+            """, (id_proforma,))
+            detalles_inventario = cursor.fetchall()
+
+            faltantes = [d for d in detalles_inventario if d["cantidad"] > d["stock_actual"]]
+            if faltantes:
+                conexion.close()
+                nombres = ", ".join(f"{d['descripcion_item']} (disponible: {d['stock_actual']})" for d in faltantes)
+                flash(f"No hay stock suficiente para emitir el recibo. Revisa: {nombres}.", "warning")
+                return render_template("nuevo_recibo.html", proforma=proforma, nuevo_numero=nuevo_numero)
+
         cursor.execute("""
             INSERT INTO recibos (
                 numero_recibo, id_proforma, fecha, monto_recibido,
@@ -2201,6 +3212,25 @@ def nuevo_recibo(id_proforma):
             nuevo_numero, id_proforma, fecha, monto_recibido,
             concepto, observaciones, nombre_recibe, ci_recibe, recibi_conforme
         ))
+
+        if primer_recibo:
+            for detalle in detalles_inventario:
+                nuevo_stock = detalle["stock_actual"] - detalle["cantidad"]
+                cursor.execute("UPDATE inventario SET cantidad = ? WHERE id_item = ?", (nuevo_stock, detalle["id_item"]))
+                cursor.execute("""
+                    INSERT INTO movimientos_inventario (
+                        id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
+                    )
+                    VALUES (?, ?, 'SALIDA', ?, ?, ?)
+                """, (
+                    detalle["id_item"],
+                    date.today().isoformat(),
+                    -detalle["cantidad"],
+                    "Uso en proforma (recibo emitido)",
+                    proforma["numero_proforma"]
+                ))
+
+            cursor.execute("UPDATE proformas SET stock_descontado = 1 WHERE id_proforma = ?", (id_proforma,))
 
         conexion.commit()
         conexion.close()
@@ -2342,7 +3372,44 @@ def eliminar_recibo(id_recibo):
         flash("El recibo no existe.", "warning")
         return redirect(url_for("listar_recibos"))
 
+    id_proforma = recibo["id_proforma"]
+
     cursor.execute("DELETE FROM recibos WHERE id_recibo = ?", (id_recibo,))
+
+    # Si este era el último recibo de la proforma y el stock ya se había
+    # descontado, se repone: sin recibo, la compra deja de estar concretada.
+    cursor.execute("SELECT COUNT(*) AS total FROM recibos WHERE id_proforma = ?", (id_proforma,))
+    quedan_recibos = cursor.fetchone()["total"]
+
+    if quedan_recibos == 0:
+        cursor.execute("SELECT * FROM proformas WHERE id_proforma = ?", (id_proforma,))
+        proforma = cursor.fetchone()
+
+        if proforma is not None and proforma["stock_descontado"]:
+            cursor.execute("""
+                SELECT id_item, cantidad FROM detalle_proforma
+                WHERE id_proforma = ? AND tipo_item = 'REPUESTO' AND id_item IS NOT NULL
+            """, (id_proforma,))
+            detalles_inventario = cursor.fetchall()
+
+            for detalle in detalles_inventario:
+                cursor.execute("UPDATE inventario SET cantidad = cantidad + ? WHERE id_item = ?",
+                               (detalle["cantidad"], detalle["id_item"]))
+                cursor.execute("""
+                    INSERT INTO movimientos_inventario (
+                        id_item, fecha_movimiento, tipo_movimiento, cantidad, motivo, referencia
+                    )
+                    VALUES (?, ?, 'ENTRADA', ?, ?, ?)
+                """, (
+                    detalle["id_item"],
+                    date.today().isoformat(),
+                    detalle["cantidad"],
+                    "Reverso por eliminación de recibo",
+                    proforma["numero_proforma"]
+                ))
+
+            cursor.execute("UPDATE proformas SET stock_descontado = 0 WHERE id_proforma = ?", (id_proforma,))
+
     conexion.commit()
     conexion.close()
 

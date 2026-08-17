@@ -45,7 +45,7 @@
                 {% for item in historial %}
                 <tr>
                     <td>{{ item["id_ingreso"] }}</td>
-                    <td>{{ item["fecha_ingreso"] }}</td>
+                    <td>{{ item["fecha_ingreso"]|fecha_es }}</td>
                     <td>{{ item["mecanico_encargado"] }}</td>
                     <td>{{ item["motivo"] }}</td>
                     <td>{{ item["observaciones"] }}</td>

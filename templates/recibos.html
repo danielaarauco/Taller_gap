@@ -86,9 +86,9 @@
                             <button type="button" class="btn-menu-acciones" onclick="toggleMenuAcciones(this)" aria-label="Acciones">⋮</button>
                             <div class="menu-acciones-lista">
                                 <a href="/recibos/{{ recibo['id_recibo'] }}">Ver</a>
-                                <a href="/recibos/{{ recibo['id_recibo'] }}/editar">Editar</a>
                                 <a href="/recibos/{{ recibo['id_recibo'] }}/pdf" target="_blank">Exportar PDF</a>
                                 {% if session.get("rol") == "ADMIN" %}
+                                <a href="/recibos/{{ recibo['id_recibo'] }}/editar">Editar</a>
                                 <form action="/recibos/{{ recibo['id_recibo'] }}/eliminar" method="POST">
                                     <button type="submit" class="item-peligro" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este recibo?')">Eliminar</button>
                                 </form>

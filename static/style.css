@@ -166,6 +166,7 @@ h3 {
     top: 0;
     height: 100vh;
     font-size: 13px;
+    overflow: hidden;
 }
 
 .brand {
@@ -176,10 +177,21 @@ h3 {
     border-bottom: 1px solid rgba(255,255,255,0.15);
 }
 
+/* El header del sidebar (logo) y el botón de búsqueda quedan siempre
+   visibles; si el listado de links no entra en la pantalla, scrollea
+   solo esa parte (así siempre se llega a "Cerrar sesión" al final). */
+.sidebar-header,
+.boton-busqueda-global {
+    flex-shrink: 0;
+}
+
 .sidebar-links {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 2px;
 }
 
 .sidebar-links a {

@@ -113,8 +113,8 @@
                     </td>
                     <td>
                         <div class="actions">
-                            <a class="btn btn-warning" href="/inventario/{{ item['id_item'] }}/editar">Editar</a>
                             {% if session.get("rol") == "ADMIN" %}
+                            <a class="btn btn-warning" href="/inventario/{{ item['id_item'] }}/editar">Editar</a>
                             <form class="inline-form" action="/inventario/{{ item['id_item'] }}/eliminar" method="POST">
                                 <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este item?')">Eliminar</button>
                             </form>

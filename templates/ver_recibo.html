@@ -14,12 +14,12 @@
             <p>Detalle completo del recibo generado desde la proforma {{ recibo["numero_proforma"] }}.</p>
         </div>
         <div class="actions">
-            <a class="btn btn-warning" href="/recibos/{{ recibo['id_recibo'] }}/editar">Editar</a>
             <a class="btn btn-secondary" href="/recibos/{{ recibo['id_recibo'] }}/pdf" target="_blank">Exportar PDF</a>
             {% if link_wpp %}
             <a class="btn btn-whatsapp" href="{{ link_wpp }}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
             {% endif %}
             {% if session.get("rol") == "ADMIN" %}
+            <a class="btn btn-warning" href="/recibos/{{ recibo['id_recibo'] }}/editar">Editar</a>
             <form class="inline-form" action="/recibos/{{ recibo['id_recibo'] }}/eliminar" method="POST">
                 <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este recibo?')">
                     Eliminar

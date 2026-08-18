@@ -1961,6 +1961,7 @@ def eliminar_ingreso(id_ingreso):
 #editar proforma
 @app.route("/proformas/<int:id_proforma>/editar", methods=["GET", "POST"])
 @login_requerido
+@roles_requeridos("ADMIN")
 def editar_proforma(id_proforma):
     conexion = conectar_db()
     cursor = conexion.cursor()
@@ -2094,6 +2095,7 @@ def eliminar_proforma_definitivo(id_proforma):
 #editar detalle proforma
 @app.route("/detalle-proforma/<int:id_detalle>/editar", methods=["GET", "POST"])
 @login_requerido
+@roles_requeridos("ADMIN")
 def editar_detalle_proforma(id_detalle):
     conexion = conectar_db()
     cursor = conexion.cursor()
@@ -2391,6 +2393,7 @@ def nuevo_item_inventario():
 #Acciones inventario
 @app.route("/inventario/<int:id_item>/editar", methods=["GET", "POST"])
 @login_requerido
+@roles_requeridos("ADMIN")
 def editar_item_inventario(id_item):
     conexion = conectar_db()
     cursor = conexion.cursor()
@@ -3417,6 +3420,7 @@ def eliminar_recibo(id_recibo):
     return redirect(url_for("listar_recibos"))
 @app.route("/recibos/<int:id_recibo>/editar", methods=["GET", "POST"])
 @login_requerido
+@roles_requeridos("ADMIN")
 def editar_recibo(id_recibo):
     conexion = conectar_db()
     cursor = conexion.cursor()

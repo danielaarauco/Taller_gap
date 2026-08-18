@@ -156,9 +156,9 @@
                             <button type="button" class="btn-menu-acciones" onclick="toggleMenuAcciones(this)" aria-label="Acciones">⋮</button>
                             <div class="menu-acciones-lista">
                                 <a href="/proformas/{{ proforma['id_proforma'] }}">Ver</a>
-                                <a href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
                                 <a href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Agregar detalle</a>
                                 {% if session.get("rol") == "ADMIN" %}
+                                <a href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
                                 <form action="/proformas/{{ proforma['id_proforma'] }}/eliminar" method="POST">
                                     <button type="submit" class="item-peligro" onclick="return confirmarAccion(this, '¿Eliminar esta proforma? Se moverá a la papelera y vas a poder restaurarla si fue un error.')">Eliminar</button>
                                 </form>

@@ -15,7 +15,9 @@
         </div>
         <div class="actions">
             <a class="btn btn-primary" href="/proformas/{{ proforma['id_proforma'] }}/agregar-detalle">Agregar detalle</a>
+            {% if session.get("rol") == "ADMIN" %}
             <a class="btn btn-warning" href="/proformas/{{ proforma['id_proforma'] }}/editar">Editar</a>
+            {% endif %}
             <a class="btn btn-secondary" href="/proformas/{{ proforma['id_proforma'] }}/pdf" target="_blank">Exportar PDF</a>
             {% if link_wpp %}
             <a class="btn btn-whatsapp" href="{{ link_wpp }}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
@@ -110,8 +112,8 @@
                         <td>{{ item["subtotal"]|moneda }}</td>
                         <td>
                             <div class="actions">
-                                <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
                                 {% if session.get("rol") == "ADMIN" %}
+                                <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
                                 <form class="inline-form" action="/detalle-proforma/{{ item['id_detalle'] }}/eliminar" method="POST">
                                     <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
                                 </form>
@@ -165,8 +167,8 @@
                         <td>{{ item["subtotal"]|moneda }}</td>
                         <td>
                             <div class="actions">
-                                <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
                                 {% if session.get("rol") == "ADMIN" %}
+                                <a class="btn btn-warning" href="/detalle-proforma/{{ item['id_detalle'] }}/editar">Editar</a>
                                 <form class="inline-form" action="/detalle-proforma/{{ item['id_detalle'] }}/eliminar" method="POST">
                                     <button class="btn btn-danger" type="submit" onclick="return confirmarAccion(this, '¿Seguro que deseas eliminar este detalle?')">Eliminar</button>
                                 </form>

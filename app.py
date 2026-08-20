@@ -1032,6 +1032,7 @@ def nuevo_ingreso():
     if request.method == "POST":
         id_vehiculo = request.form["id_vehiculo"]
         fecha_ingreso = request.form["fecha_ingreso"]
+        fecha_salida = request.form.get("fecha_salida", "").strip() or None
         motivo = limpiar_texto(request.form["motivo"])
         observaciones = limpiar_texto(request.form["observaciones"])
         estado = limpiar_texto(request.form["estado"])
@@ -1051,9 +1052,9 @@ def nuevo_ingreso():
             return render_template("nuevo_ingreso.html", vehiculos=vehiculos)
 
         cursor.execute("""
-            INSERT INTO ingresos (id_vehiculo, fecha_ingreso, motivo, observaciones, estado, mecanico_encargado)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (id_vehiculo, fecha_ingreso, motivo, observaciones, estado, mecanico_encargado))
+            INSERT INTO ingresos (id_vehiculo, fecha_ingreso, fecha_salida, motivo, observaciones, estado, mecanico_encargado)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (id_vehiculo, fecha_ingreso, fecha_salida, motivo, observaciones, estado, mecanico_encargado))
 
         conexion.commit()
         conexion.close()
@@ -1911,6 +1912,7 @@ def editar_ingreso(id_ingreso):
     if request.method == "POST":
         id_vehiculo = request.form["id_vehiculo"]
         fecha_ingreso = request.form["fecha_ingreso"]
+        fecha_salida = request.form.get("fecha_salida", "").strip() or None
         motivo = request.form["motivo"]
         observaciones = request.form["observaciones"]
         estado = request.form["estado"]
@@ -1918,9 +1920,9 @@ def editar_ingreso(id_ingreso):
 
         cursor.execute("""
             UPDATE ingresos
-            SET id_vehiculo = ?, fecha_ingreso = ?, motivo = ?, observaciones = ?, estado = ?, mecanico_encargado = ?
+            SET id_vehiculo = ?, fecha_ingreso = ?, fecha_salida = ?, motivo = ?, observaciones = ?, estado = ?, mecanico_encargado = ?
             WHERE id_ingreso = ?
-        """, (id_vehiculo, fecha_ingreso, motivo, observaciones, estado, mecanico_encargado, id_ingreso))
+        """, (id_vehiculo, fecha_ingreso, fecha_salida, motivo, observaciones, estado, mecanico_encargado, id_ingreso))
 
         conexion.commit()
         conexion.close()
@@ -3216,6 +3218,56 @@ def nuevo_recibo(id_proforma):
             concepto, observaciones, nombre_recibe, ci_recibe, recibi_conforme
         ))
 
+        id_recibo_nuevo = cursor.lastrowid
+
+        # Historial del vehículo: se actualiza automáticamente acá, al
+        # emitir el recibo, para que quede registro de lo que se le hizo
+        # a cada vehículo. Solo aplica a proformas FORMAL (vinculadas a
+        # un vehículo registrado en el sistema); las proformas externas/
+        # manuales no tienen un vehículo del sistema al que asociarlo.
+        if proforma["tipo_proforma"] == "FORMAL" and proforma["id_vehiculo"]:
+            cursor.execute("""
+                SELECT descripcion FROM detalle_proforma
+                WHERE id_proforma = ? AND tipo_item = 'REPUESTO'
+                ORDER BY id_detalle ASC
+            """, (id_proforma,))
+            repuestos_realizados = [f["descripcion"] for f in cursor.fetchall()]
+
+            cursor.execute("""
+                SELECT descripcion FROM detalle_proforma
+                WHERE id_proforma = ? AND tipo_item = 'MANO_OBRA'
+                ORDER BY id_detalle ASC
+            """, (id_proforma,))
+            mano_obra_realizada = [f["descripcion"] for f in cursor.fetchall()]
+
+            partes_motivo = []
+            if mano_obra_realizada:
+                partes_motivo.append("Mano de obra: " + ", ".join(mano_obra_realizada))
+            if repuestos_realizados:
+                partes_motivo.append("Repuestos: " + ", ".join(repuestos_realizados))
+            motivo_historial = " | ".join(partes_motivo) if partes_motivo else f"Servicio facturado en recibo {nuevo_numero}"
+
+            partes_observaciones = [f"Servicio facturado en recibo {nuevo_numero} (proforma {proforma['numero_proforma']})"]
+            if observaciones:
+                partes_observaciones.append("Obs. del recibo: " + observaciones)
+
+            # La fecha del recibo se registra como fecha de SALIDA (el
+            # servicio ya está facturado/entregado); la fecha de ingreso
+            # se toma de cuando se creó la proforma, que es cuando el
+            # vehículo llegó al taller.
+            cursor.execute("""
+                INSERT INTO ingresos (id_vehiculo, fecha_ingreso, fecha_salida, motivo, observaciones, estado, id_recibo)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                proforma["id_vehiculo"],
+                proforma["fecha"],
+                fecha,
+                motivo_historial,
+                " | ".join(partes_observaciones),
+                "Finalizado",
+                id_recibo_nuevo
+            ))
+
         if primer_recibo:
             for detalle in detalles_inventario:
                 nuevo_stock = detalle["stock_actual"] - detalle["cantidad"]
@@ -3378,6 +3430,10 @@ def eliminar_recibo(id_recibo):
     id_proforma = recibo["id_proforma"]
 
     cursor.execute("DELETE FROM recibos WHERE id_recibo = ?", (id_recibo,))
+
+    # Se borra también la entrada de historial del vehículo que se había
+    # generado automáticamente al emitir este recibo.
+    cursor.execute("DELETE FROM ingresos WHERE id_recibo = ?", (id_recibo,))
 
     # Si este era el último recibo de la proforma y el stock ya se había
     # descontado, se repone: sin recibo, la compra deja de estar concretada.

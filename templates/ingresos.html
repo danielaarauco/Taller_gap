@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% from "_iconos.html" import icono_filtro, icono_buscar %}
 
-{% block title %}Ingresos{% endblock %}
+{% block title %}Ingreso/Salida de vehículos{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="page-header">
         <div>
-            <h1>Ingresos vehiculos</h1>
-            <p>Busca y filtra ingresos registrados en el taller.</p>
+            <h1>Ingreso/Salida de vehículos</h1>
+            <p>Busca y filtra ingresos y salidas registrados en el taller.</p>
         </div>
         <a class="btn btn-primary" href="/ingresos/nuevo">Registrar ingreso</a>
     </div>
@@ -98,7 +98,8 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Fecha</th>
+                    <th>Fecha ingreso</th>
+                    <th>Fecha salida</th>
                     <th>Propietario</th>
                     <th>Placa</th>
                     <th>Vehículo</th>
@@ -113,6 +114,7 @@
                 <tr>
                     <td>{{ ingreso["id_ingreso"] }}</td>
                     <td>{{ ingreso["fecha_ingreso"]|fecha_es }}</td>
+                    <td>{{ ingreso["fecha_salida"]|fecha_es if ingreso["fecha_salida"] else "—" }}</td>
                     <td>{{ ingreso["nombre_completo"] }}</td>
                     <td>{{ ingreso["placa"] }}</td>
                     <td>{{ ingreso["marca"] }} {{ ingreso["modelo"] }}</td>
@@ -134,7 +136,7 @@
 
                 {% if not ingresos %}
                 <tr>
-                    <td colspan="9" class="center">No se encontraron ingresos con esos filtros.</td>
+                    <td colspan="10" class="center">No se encontraron ingresos con esos filtros.</td>
                 </tr>
                 {% endif %}
             </tbody>

@@ -69,7 +69,10 @@ CREATE TABLE IF NOT EXISTS ingresos (
     motivo TEXT NOT NULL,
     observaciones TEXT,
     estado TEXT NOT NULL,
-    FOREIGN KEY (id_vehiculo) REFERENCES vehiculos(id_vehiculo)
+    id_recibo INTEGER,
+    fecha_salida TEXT,
+    FOREIGN KEY (id_vehiculo) REFERENCES vehiculos(id_vehiculo),
+    FOREIGN KEY (id_recibo) REFERENCES recibos(id_recibo)
 )
 """)
 
@@ -182,6 +185,8 @@ print("Tablas verificadas/creadas.")
 print("Revisando columnas...")
 
 agregar_columna_si_falta("ingresos", "mecanico_encargado", "TEXT")
+agregar_columna_si_falta("ingresos", "id_recibo", "INTEGER")
+agregar_columna_si_falta("ingresos", "fecha_salida", "TEXT")
 
 agregar_columna_si_falta("proformas", "pago", "TEXT DEFAULT 'Pendiente'")
 agregar_columna_si_falta("proformas", "tipo_proforma", "TEXT DEFAULT 'FORMAL'")

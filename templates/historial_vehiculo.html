@@ -34,7 +34,9 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Fecha</th>
+                    <th>Fecha ingreso</th>
+                    <th>Fecha salida</th>
+                    <th>Origen</th>
                     <th>Mecánico encargado</th>
                     <th>Motivo</th>
                     <th>Observaciones</th>
@@ -46,6 +48,14 @@
                 <tr>
                     <td>{{ item["id_ingreso"] }}</td>
                     <td>{{ item["fecha_ingreso"]|fecha_es }}</td>
+                    <td>{{ item["fecha_salida"]|fecha_es if item["fecha_salida"] else "—" }}</td>
+                    <td>
+                        {% if item["id_recibo"] %}
+                            <a class="badge badge-aprobada" href="/recibos/{{ item['id_recibo'] }}">Recibo</a>
+                        {% else %}
+                            <span class="badge badge-pendiente">Manual</span>
+                        {% endif %}
+                    </td>
                     <td>{{ item["mecanico_encargado"] }}</td>
                     <td>{{ item["motivo"] }}</td>
                     <td>{{ item["observaciones"] }}</td>

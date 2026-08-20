@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Nuevo Ingreso{% endblock %}
+{% block title %}Registrar Ingreso/Salida{% endblock %}
 
 {% block content %}
 <div class="card">
     <div class="page-header">
         <div>
-            <h1>Registrar Ingreso</h1>
-            <p>Registra la entrada de un vehículo al taller.</p>
+            <h1>Registrar Ingreso/Salida</h1>
+            <p>Registra la entrada de un vehículo al taller, y la fecha de salida cuando corresponda.</p>
         </div>
     </div>
 
@@ -29,6 +29,11 @@
             <div class="form-group">
                 <label>Fecha de ingreso</label>
                 <input type="date" name="fecha_ingreso" required>
+            </div>
+
+            <div class="form-group">
+                <label>Fecha de salida</label>
+                <input type="date" name="fecha_salida">
             </div>
 
             <div class="form-group">
